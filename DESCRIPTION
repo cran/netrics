@@ -1,8 +1,8 @@
 Package: netrics
 Title: Many Ways to Measure and Classify Membership for Networks,
         Nodes, and Ties
-Version: 0.2.0
-Date: 2026-03-21
+Version: 0.2.1
+Date: 2026-04-04
 Description: Many tools for calculating network, node, or tie
    marks, measures, motifs and memberships of many different types of networks.
    Marks identify structural positions, measures quantify network properties,
@@ -32,9 +32,9 @@ Config/testthat/parallel: true
 Config/testthat/edition: 3
 Config/testthat/start-first: measure_net
 NeedsCompilation: no
-Packaged: 2026-03-21 19:41:35 UTC; hollway
+Packaged: 2026-04-04 08:25:06 UTC; hollway
 Author: James Hollway [cre, aut, ctb] (IHEID, ORCID:
     <https://orcid.org/0000-0002-8361-9647>)
 Maintainer: James Hollway <james.hollway@graduateinstitute.ch>
 Repository: CRAN
-Date/Publication: 2026-03-26 09:30:09 UTC
+Date/Publication: 2026-04-06 05:10:16 UTC
