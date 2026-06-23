@@ -1,8 +1,7 @@
 Package: netrics
 Title: Many Ways to Measure and Classify Membership for Networks,
         Nodes, and Ties
-Version: 0.2.1
-Date: 2026-04-04
+Version: 0.3.1
 Description: Many tools for calculating network, node, or tie
    marks, measures, motifs and memberships of many different types of networks.
    Marks identify structural positions, measures quantify network properties,
@@ -14,8 +13,7 @@ BugReports: https://github.com/stocnet/netrics/issues
 License: MIT + file LICENSE
 Language: en-GB
 Encoding: UTF-8
-RoxygenNote: 7.3.3
-Depends: R (>= 3.6.0), manynet
+Depends: R (>= 4.1.0), manynet (>= 2.1.2)
 Imports: dplyr, igraph (>= 2.1.0)
 Suggests: autograph, sna, testthat (>= 3.0.0)
 Authors@R: 
@@ -31,10 +29,11 @@ Config/Needs/website: pkgdown
 Config/testthat/parallel: true
 Config/testthat/edition: 3
 Config/testthat/start-first: measure_net
+Config/roxygen2/version: 8.0.0
 NeedsCompilation: no
-Packaged: 2026-04-04 08:25:06 UTC; hollway
+Packaged: 2026-06-22 09:36:47 UTC; hollway
 Author: James Hollway [cre, aut, ctb] (IHEID, ORCID:
     <https://orcid.org/0000-0002-8361-9647>)
 Maintainer: James Hollway <james.hollway@graduateinstitute.ch>
 Repository: CRAN
-Date/Publication: 2026-04-06 05:10:16 UTC
+Date/Publication: 2026-06-23 07:00:02 UTC
