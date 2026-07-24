@@ -1,7 +1,7 @@
 Package: netrics
 Title: Many Ways to Measure and Classify Membership for Networks,
         Nodes, and Ties
-Version: 0.3.1
+Version: 0.4.0
 Description: Many tools for calculating network, node, or tie
    marks, measures, motifs and memberships of many different types of networks.
    Marks identify structural positions, measures quantify network properties,
@@ -28,12 +28,13 @@ Config/Needs/check: covr, lintr, spelling
 Config/Needs/website: pkgdown
 Config/testthat/parallel: true
 Config/testthat/edition: 3
-Config/testthat/start-first: measure_net
+Config/testthat/start-first: tutorials_netrics, measure_net,
+        member_nodes, measure_nodes
 Config/roxygen2/version: 8.0.0
 NeedsCompilation: no
-Packaged: 2026-06-22 09:36:47 UTC; hollway
+Packaged: 2026-07-24 15:51:55 UTC; hollway
 Author: James Hollway [cre, aut, ctb] (IHEID, ORCID:
     <https://orcid.org/0000-0002-8361-9647>)
 Maintainer: James Hollway <james.hollway@graduateinstitute.ch>
 Repository: CRAN
-Date/Publication: 2026-06-23 07:00:02 UTC
+Date/Publication: 2026-07-24 16:20:02 UTC
