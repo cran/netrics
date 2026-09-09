@@ -1,3 +1,70 @@
+# netrics 1.0.3
+
+## Measures
+
+- Fixed two `node_by_homophily()` issues
+  - It was reading a vector attribute against the wrong nodes
+  - It was reporting the E-I index where it computed Geary's C
+- Fixed `net_by_homophily()` discarding tie weights before Geary's C
+  - Geary's C now declares that on a weighted network, it can exceed 2
+- Fixed `net_by_spatial()` erroring on a two-mode network
+  - For one-mode attributes, projection is used
+  - For multimodal attributes, the multilevel matrix is read instead
+- Fixed `net_by_spatial()` propagating missing values
+- Fixed `net_by_diversity()` and `node_by_diversity()` erroring on a factor attribute
+
+## Memberships
+
+- Fixed two `node_in_leiden()` issues
+  - It was returning a community for every node on an unweighted network
+  - It was overriding a user's `resolution`
+- Fixed `node_in_community()`, `node_in_spinglass()` and `node_in_fluid()` 
+  treating a weakly connected directed network as unconnected
+- Fixed `node_in_partition()` returning a split it had already improved upon
+  - Added `start=` for a random rather than a node-order initialisation
+
+# netrics 1.0.2
+
+## Package
+
+- Fixed some warning tests related to changes in snet output in manynet
+- Raised `{manynet}` floor to 2.3.1, retiring `to_ties()` and `net_waves()` shims
+
+## Marks
+
+- Fixed `node_is_fold()` erroring on signed networks (closes #25)
+- Fixed `node_is_independent()` and `node_is_core()` erroring on multilevel networks (closes #26)
+- Fixed `tie_is_transitive()`, `tie_is_triplet()` and `tie_is_cyclical()` erroring on signed networks (closes #25)
+- Fixed `tie_is_max()` and `tie_is_min()` to accept a numeric vector, and to name what they mark
+- Fixed `tie_is_path()` to name `from` and `to` where either is missing (closes #26)
+
+## Measures
+
+- Fixed distance measures erroring on signed networks to use only positive ties (closes #25)
+  - `node_by_closeness()`, `node_by_harmonic()`, `node_by_reach()`, `node_by_decay()`,
+  `node_by_integration()`, `node_by_radiality()`, `node_by_eccentricity()`, `node_by_vitality()`,
+  `node_by_betweenness()`, `node_by_induced()`, `node_x_path()`
+  - `net_by_closeness()`, `net_by_betweenness()`, `net_by_connectedness()`, `net_by_reach()`,
+  `net_by_harmonic()`, `net_by_decay()`, `net_by_integration()`
+  - `mode_by_closeness()`, `mode_by_betweenness()`
+- Fixed eigenvector measures erroring or warning on signed networks, which now read each tie by its magnitude (closes #25)
+- Fixed `tie_by_betweenness()` erroring on signed networks, which reads each tie by its magnitude so that every tie keeps a value (closes #25)
+- Fixed `net_by_modularity()` erroring on signed networks (closes #25)
+- Fixed eigenvector and structural hole measures erroring on multilevel networks, which are now measured whole rather than projected (closes #26)
+- Fixed `net_by_core()` and `net_by_factions()` to stop with a clear message on a multilevel network, since a `create_*()` ideal covers one layer (closes #26)
+- Fixed `net_by_spatial()` to name a non-numeric attribute (closes #26)
+- Added `limit=` to `net_by_strength()` and `net_by_toughness()`, which take a minimum over 2^n subsets and so hang above about twenty nodes or ties (closes #34)
+- Reduced run time of fragmentation examples by using `fict_greys` instead of `fict_marvel`
+
+## Memberships
+
+- Fixed `node_in_community()` erroring on signed networks, which now considers only `node_in_spinglass()` (closes #25)
+- Fixed `node_in_core()` and `node_by_core()` returning two values per node on multilevel networks (closes #26)
+
+## Methods
+
+- Fixed `coreness_rich()` reading a multilevel network as a plain two-mode one (closes #26)
+
 # netrics 1.0.1
 
 ## Methods
