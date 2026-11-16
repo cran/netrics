@@ -45,9 +45,9 @@ Weakly connected components consist of subgraphs where there is a path
 in either direction between member nodes.
 }
 \examples{
-ison_monks |> to_uniplex("esteem") |>
+ison_monks |> to_layer("esteem") |>
   mutate_nodes(comp = node_in_component())
-ison_monks |> to_uniplex("esteem") |>
+ison_monks |> to_layer("esteem") |>
   mutate_nodes(comp = node_in_component(connectivity = "weak"))
 }
 \seealso{
@@ -70,6 +70,7 @@ Other nodal:
 \code{\link{mark_diff}},
 \code{\link{mark_nodes}},
 \code{\link{mark_select_node}},
+\code{\link{measure_accuracy_node}},
 \code{\link{measure_assort_node}},
 \code{\link{measure_broker_node}},
 \code{\link{measure_brokerage}},
@@ -81,6 +82,8 @@ Other nodal:
 \code{\link{measure_core}},
 \code{\link{measure_diffusion_node}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_domain}},
+\code{\link{measure_opinion}},
 \code{\link{member_brokerage}},
 \code{\link{member_cliques}},
 \code{\link{member_community}},
@@ -91,6 +94,7 @@ Other nodal:
 \code{\link{member_core}},
 \code{\link{member_diffusion}},
 \code{\link{member_equivalence}},
+\code{\link{motif_accuracy_node}},
 \code{\link{motif_brokerage_node}},
 \code{\link{motif_clique}},
 \code{\link{motif_composition}},

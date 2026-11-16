@@ -73,43 +73,13 @@ Redundancy is thus \eqn{\frac{2t}{n}},
 where \eqn{t} is the sum of ties and \eqn{n} the sum of nodes in each node's neighbourhood,
 and effective size is calculated as \eqn{n - \frac{2t}{n}}.
 Node efficiency is the node's effective size divided by its degree.
-}
-\section{Cognitive social structures}{
 
-A cognitive social structure records each node's report of the ties in
-the whole network, in a \code{by} column that names who reported each tie.
-Counting every report as a tie of its own would count each tie once for
-every perceiver who reports it.
-So the functions here first combine the reports into the locally
-aggregated structure of Krackhardt (1987), with the intersection rule:
-a tie exists if both of its ends report it, and a message says so.
-A tie that names no reporter is kept as it is.
-
-A tie-level function still returns one value for each report,
-so that the result can be added back to the network it was given.
-Each report takes the value of the tie that it reports.
-A report of a tie that is not in the aggregated structure takes \code{NA},
-or \code{FALSE} for a mark.
-\code{tie_is_random()} is the exception, and draws among the reports.
-
-To combine the reports in a different way, do this before the function,
-e.g. with \code{manynet::to_aggregated(over = "by")}.
-
-Krackhardt, David. 1987.
-"Cognitive social structures".
-\emph{Social Networks} 9(2): 109-134.
-\doi{10.1016/0378-8733(87)90009-8}
-}
-
-\section{Multilevel networks}{
-
+For multilevel networks, \code{node_by_effsize()} and \code{node_by_efficiency()}
+measure the network whole, as \code{\link[=net_by_independence]{net_by_independence()}} does.
 A multilevel network reports itself as two-mode, but holds ties within a
 mode as well as between them, so it cannot be projected onto one mode.
-\code{node_by_effsize()} and \code{node_by_efficiency()} therefore measure a
-multilevel network whole, as \code{\link[=net_by_independence]{net_by_independence()}} does. The projection
-remains for genuine two-mode networks.
+The projection remains for genuine two-mode networks.
 }
-
 \section{Constraint}{
 
 Constraint has a natural floor at 0, for a node whose contacts are wholly
@@ -163,17 +133,18 @@ Barrat, Alain, Marc Barthelemy, Romualdo Pastor-Satorras, and Alessandro Vespign
 }
 \seealso{
 Other brokerage:
-\code{\link{measure_broker_tie}},
 \code{\link{measure_brokerage}},
 \code{\link{member_brokerage}},
 \code{\link{motif_brokerage_net}},
-\code{\link{motif_brokerage_node}}
+\code{\link{motif_brokerage_node}},
+\code{\link[=tie_by_width]{tie_by_width()}}
 
 Other measures:
+\code{\link{measure_accuracy_net}},
+\code{\link{measure_accuracy_node}},
 \code{\link{measure_assort_net}},
 \code{\link{measure_assort_node}},
 \code{\link{measure_breadth}},
-\code{\link{measure_broker_tie}},
 \code{\link{measure_brokerage}},
 \code{\link{measure_central_between}},
 \code{\link{measure_central_close}},
@@ -190,13 +161,18 @@ Other measures:
 \code{\link{measure_diffusion_infection}},
 \code{\link{measure_diffusion_net}},
 \code{\link{measure_diffusion_node}},
+\code{\link{measure_diverse_dispersion}},
 \code{\link{measure_diverse_net}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_diverse_tie}},
+\code{\link{measure_domain}},
 \code{\link{measure_features}},
 \code{\link{measure_fit}},
 \code{\link{measure_fragmentation}},
 \code{\link{measure_hierarchy}},
-\code{\link{measure_periods}}
+\code{\link{measure_opinion}},
+\code{\link{measure_periods}},
+\code{\link[=tie_by_width]{tie_by_width()}}
 
 Other nodal:
 \code{\link{mark_core}},
@@ -204,6 +180,7 @@ Other nodal:
 \code{\link{mark_diff}},
 \code{\link{mark_nodes}},
 \code{\link{mark_select_node}},
+\code{\link{measure_accuracy_node}},
 \code{\link{measure_assort_node}},
 \code{\link{measure_brokerage}},
 \code{\link{measure_central_between}},
@@ -214,6 +191,8 @@ Other nodal:
 \code{\link{measure_core}},
 \code{\link{measure_diffusion_node}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_domain}},
+\code{\link{measure_opinion}},
 \code{\link{member_brokerage}},
 \code{\link{member_cliques}},
 \code{\link{member_community}},
@@ -225,6 +204,7 @@ Other nodal:
 \code{\link{member_core}},
 \code{\link{member_diffusion}},
 \code{\link{member_equivalence}},
+\code{\link{motif_accuracy_node}},
 \code{\link{motif_brokerage_node}},
 \code{\link{motif_clique}},
 \code{\link{motif_composition}},

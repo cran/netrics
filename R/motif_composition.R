@@ -2,7 +2,6 @@
 
 #' Motifs of ego-network composition
 #' @name motif_composition
-#' @template section_cognitive
 #' @description
 #'   These functions describe the composition of each node's ego-network,
 #'   that is, what the ties and alters surrounding each node look like:
@@ -21,15 +20,8 @@
 #'   Each branches internally on the type of network or attribute given,
 #'   so the same function serves weighted, multiplex, and two-mode networks,
 #'   and categorical as well as continuous attributes.
-#' @section Multiplex networks:
-#'   `node_x_ties()` returns one column per layer, plus a Diversity column,
-#'   rather than the distribution of tie values it returns otherwise.
-#'   Layers are taken by name, so a network multiplexed on any attribute is
-#'   covered, not only one multiplexed on `type`.
-#'   Every column stays the length of the whole nodeset,
-#'   so a node holding no tie in a layer scores 0 there rather than dropping out.
 #' @template param_data
-#' @template param_attr
+#' @template param_attr_pick
 #' @template param_dir
 #' @family motifs
 #' @family diversity
@@ -51,6 +43,10 @@ NULL
 #'   the index of qualitative variation across the layers.
 #'   This is 0 where a node's ties all fall in a single layer,
 #'   and 1 where they are spread evenly across all of them.
+#'   Layers are taken by name, so a network multiplexed on any attribute is
+#'   covered, not only one multiplexed on `type`.
+#'   Every column stays the length of the whole nodeset,
+#'   so a node holding no tie in a layer scores 0 there rather than dropping out.
 #'   Where the interest is in just two of the layers,
 #'   [node_by_multidegree()] gives the ratio between them.
 #'
@@ -79,7 +75,7 @@ node_x_ties <- function(.data, direction = c("all", "out", "in")){
     # all and only the Diversity column
     layers <- manynet::layer_names(.data)
     # `uniplex_degree()` keeps each layer at the length of the whole nodeset,
-    # which `to_uniplex()` does not
+    # which `to_layer()` does not
     out <- vapply(layers, function(l)
       uniplex_degree(.data, l, normalized = FALSE, direction = direction),
       FUN.VALUE = numeric(manynet::net_nodes(.data)))
@@ -368,7 +364,6 @@ node_x_similarity <- function(.data, attribute){
 
 #' Motifs of network homophily
 #' @name motif_homophily
-#' @template section_cognitive
 #' @description
 #'   `net_x_homophily()` returns the two-by-two table from which network-level
 #'   homophily is calculated, together with the summaries built from it.
@@ -383,7 +378,7 @@ node_x_similarity <- function(.data, attribute){
 #'   say to stronger ties. On unweighted networks the two agree exactly.
 #'   Apply [manynet::to_unweighted()] first to compare them directly.
 #' @template param_data
-#' @template param_attr
+#' @template param_attr_pick
 #' @family motifs
 #' @family diversity
 #' @template net_motif
@@ -460,6 +455,7 @@ net_x_homophily <- function(.data, attribute){
 # Resolve an attribute given either as a name or as a vector, matching how
 # `node_by_heterophily()` and friends accept either.
 .resolve_attribute <- function(.data, attribute){
+  attribute <- .pick_attribute(.data, attribute)
   if(length(attribute) == 1 && is.character(attribute))
     attribute <- manynet::node_attribute(.data, attribute)
   if(is.null(attribute))

@@ -2,7 +2,6 @@
 
 #' Motifs of clique participation
 #' @name motif_clique
-#' @template section_cognitive
 #' @description
 #'   `node_x_clique()` returns which maximal cliques each node belongs to.
 #'
@@ -42,10 +41,11 @@
 #'   through such adjacent cliques,
 #'   and a node belongs to every community that holds a clique it is in.
 #'   A node in no clique of at least `min_clique_size` belongs to none.
-#' @section Signed networks:
+#' @details
+#'   For signed networks, only the positive ties are considered.
 #'   Since a clique is a maximally cohesive subgroup, negative ties cannot
-#'   contribute to one. Where the network is signed, only its positive ties are
-#'   considered. Use [manynet::to_unsigned()] first to control this yourself.
+#'   contribute to one.
+#'   Use [manynet::to_unsigned()] first to control this yourself.
 #' @references
 #' ## On cliques
 #' Luce, R. Duncan, and Albert D. Perry. 1949.
@@ -122,11 +122,13 @@ node_x_percolation <- function(.data, min_clique_size = 3){
                                                diag = FALSE)
   cliques <- igraph::max_cliques(graph, min = smallest)
   if(twomode){
-    modes <- manynet::node_is_mode(.data)
-    keep <- vapply(cliques, function(cl)
-      sum(!modes[cl]) >= min_clique_size[1] &&
-        sum(modes[cl]) >= min_clique_size[2],
-      FUN.VALUE = logical(1))
+    # the nodes of the second mode in each clique, counted for all at once
+    modes <- as.logical(manynet::node_is_mode(.data))
+    clique <- rep(seq_along(cliques), lengths(cliques))
+    second <- tabulate(clique[modes[as.integer(unlist(cliques))]],
+                       nbins = length(cliques))
+    keep <- lengths(cliques) - second >= min_clique_size[1] &
+      second >= min_clique_size[2]
     cliques <- cliques[keep]
   }
   list(.data = .data, cliques = cliques, smallest = smallest)
@@ -136,7 +138,8 @@ node_x_percolation <- function(.data, min_clique_size = 3){
   cliques <- found$cliques
   out <- matrix(0L, nrow = manynet::net_nodes(found$.data),
                 ncol = length(cliques))
-  for(j in seq_along(cliques)) out[as.integer(cliques[[j]]), j] <- 1L
+  out[cbind(as.integer(unlist(cliques)),
+            rep(seq_along(cliques), lengths(cliques)))] <- 1L
   colnames(out) <- if(length(cliques) > 0)
     paste0("C", seq_along(cliques)) else character(0)
   out

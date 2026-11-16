@@ -12,7 +12,9 @@ net_x_homophily(.data, attribute)
 Internally any of these will be coerced to an efficient implementation.
 For more information on possible coercions, see e.g. \code{\link[manynet:as_stocnet]{manynet::as_stocnet()}}.}
 
-\item{attribute}{Name of a nodal attribute, mark, measure, or membership vector.}
+\item{attribute}{Name of a nodal attribute, mark, measure, or membership vector.
+Where none is named and the network holds only one nodal attribute
+besides the reserved ones, such as "label" and "mode", that one is used.}
 }
 \value{
 A \code{network_motif} named numeric vector or sometimes a data frame with
@@ -34,33 +36,6 @@ alike, whereas \code{\link[=net_by_heterophily]{net_by_heterophily()}} sums tie 
 say to stronger ties. On unweighted networks the two agree exactly.
 Apply \code{\link[manynet:to_unweighted]{manynet::to_unweighted()}} first to compare them directly.
 }
-\section{Cognitive social structures}{
-
-A cognitive social structure records each node's report of the ties in
-the whole network, in a \code{by} column that names who reported each tie.
-Counting every report as a tie of its own would count each tie once for
-every perceiver who reports it.
-So the functions here first combine the reports into the locally
-aggregated structure of Krackhardt (1987), with the intersection rule:
-a tie exists if both of its ends report it, and a message says so.
-A tie that names no reporter is kept as it is.
-
-A tie-level function still returns one value for each report,
-so that the result can be added back to the network it was given.
-Each report takes the value of the tie that it reports.
-A report of a tie that is not in the aggregated structure takes \code{NA},
-or \code{FALSE} for a mark.
-\code{tie_is_random()} is the exception, and draws among the reports.
-
-To combine the reports in a different way, do this before the function,
-e.g. with \code{manynet::to_aggregated(over = "by")}.
-
-Krackhardt, David. 1987.
-"Cognitive social structures".
-\emph{Social Networks} 9(2): 109-134.
-\doi{10.1016/0378-8733(87)90009-8}
-}
-
 \section{Expected EI}{
 
 The EI index depends on how large the categories are, not only on how
@@ -91,6 +66,7 @@ Krackhardt, David, and Robert N. Stern. 1988.
 }
 \seealso{
 Other motifs:
+\code{\link{motif_accuracy_node}},
 \code{\link{motif_brokerage_net}},
 \code{\link{motif_brokerage_node}},
 \code{\link{motif_clique}},
@@ -106,8 +82,10 @@ Other motifs:
 Other diversity:
 \code{\link{measure_assort_net}},
 \code{\link{measure_assort_node}},
+\code{\link{measure_diverse_dispersion}},
 \code{\link{measure_diverse_net}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_diverse_tie}},
 \code{\link{motif_composition}}
 }
 \concept{diversity}

@@ -2,7 +2,6 @@
 
 #' Measures of node eigenvector-like centrality
 #' @name measure_central_eigen
-#' @template section_cognitive
 #' @description
 #'   These functions calculate common eigenvector-related centrality 
 #'   measures, or walk-based eigenmeasures, for one- and two-mode networks:
@@ -45,16 +44,17 @@
 #' @family eigenvector
 #' @family centrality
 #' @template node_measure
-#' @section Signed networks:
-#'   These measures do not read a tie as a distance, so where the network is
-#'   signed each tie is read by its magnitude rather than the negative ties
-#'   being dropped. Use [manynet::to_unsigned()] first to control this
-#'   yourself.
-#' @section Multilevel networks:
+#' @details
+#'   For signed networks, these measures read each tie by its magnitude,
+#'   rather than drop the negative ties,
+#'   since they do not read a tie as a distance.
+#'   Use [manynet::to_unsigned()] first to control this yourself.
+#'
+#'   For multilevel networks, these measures score the network whole, as
+#'   [net_by_independence()] does.
 #'   A multilevel network reports itself as two-mode, but holds ties within a
 #'   mode as well as between them, so it cannot be projected onto one mode.
-#'   These measures therefore score a multilevel network whole, as
-#'   [net_by_independence()] does. The projection remains for genuine two-mode
+#'   The projection remains for genuine two-mode
 #'   networks, where no two nodes of one mode are ever tied.
 NULL
 
@@ -155,6 +155,12 @@ node_by_eigenvector <- function(.data, normalized = TRUE, scaled = TRUE,
 #'   When \eqn{\beta = 0}, this is the outdegree.
 #'   \eqn{\alpha} is calculated to make sure the root mean square equals 
 #'   the network size.
+#'
+#'   There is no solution where \eqn{1/\beta} is an eigenvalue of the
+#'   network, as 1 is for any network with a separate pair of nodes,
+#'   so `node_by_power()` stops there and says which exponents to use instead.
+#'   An exponent whose absolute value is less than the inverse of the
+#'   largest eigenvalue always has a solution.
 #' @references 
 #' ## On power centrality
 #'   Bonacich, Phillip. 1987. 
@@ -188,16 +194,19 @@ node_by_power <- function(.data, normalized = TRUE, scaled = FALSE,
   # Do the calculations. A multilevel network takes the one-mode branch,
   # since it cannot be projected; see `node_by_eigenvector()`.
   if (!manynet::is_twomode(graph) || manynet::is_multilevel(graph)){
+    .check_power_exponent(graph, exponent)
     out <- igraph::power_centrality(graph = graph,
                                     exponent = exponent,
                                     rescale = scaled)
     if (normalized && !scaled) out <- out / sqrt(1/2)
   } else {
     eigen1 <- manynet::to_mode1(graph)
+    .check_power_exponent(eigen1, exponent)
     eigen1 <- igraph::power_centrality(graph = eigen1,
                                        exponent = exponent,
                                        rescale = scaled)
     eigen2 <- manynet::to_mode2(graph)
+    .check_power_exponent(eigen2, exponent)
     eigen2 <- igraph::power_centrality(graph = eigen2,
                                        exponent = exponent,
                                        rescale = scaled)
@@ -210,6 +219,27 @@ node_by_power <- function(.data, normalized = TRUE, scaled = FALSE,
   make_node_measure(out, .data, measure = "power centrality",
                     range = `if`(scaled, c(0, 1), c(-Inf, Inf)),
                     normalization = `if`(scaled, "proportional", "none"))
+}
+
+# Power centrality solves (I - exponent * A) c = A 1, which has no solution
+# where 1/exponent is an eigenvalue of A: with the default exponent of 1, any
+# network with a separate pair of nodes, for example. `igraph::power_centrality()`
+# then fails in its matrix solver, so this stops first and says why.
+# A is the unweighted adjacency matrix, as `igraph::power_centrality()` reads it.
+.check_power_exponent <- function(graph, exponent){
+  if (exponent == 0) return(invisible())
+  values <- eigen(igraph::as_adjacency_matrix(graph, sparse = FALSE),
+                  only.values = TRUE)$values
+  if (min(Mod(1 - exponent * values)) < sqrt(.Machine$double.eps)){
+    largest <- max(Mod(values))
+    manynet::snet_abort("Power centrality has no solution for this network",
+                          "with an exponent of {exponent}, since",
+                          "{round(1/exponent, 3)} is an eigenvalue of the network.",
+                          "Choose an exponent whose absolute value is less than",
+                          "{round(1/largest, 3)}, the inverse of the largest",
+                          "eigenvalue.")
+  }
+  invisible()
 }
 
 #' @rdname measure_central_eigen
@@ -466,7 +496,6 @@ node_by_posneg <- function(.data){
 
 #' Measures of tie eigenvector-like centrality
 #' @name measure_central_tie_eigen
-#' @template section_cognitive
 #' @description
 #'   `tie_by_eigenvector()` measures the eigenvector centrality of ties in a 
 #'   network.
@@ -503,7 +532,6 @@ tie_by_eigenvector <- function(.data, normalized = TRUE){
 
 #' Measures of network eigenvector-like centralisation
 #' @name measure_centralisation_eigen
-#' @template section_cognitive
 #' @description
 #'   - `net_by_eigenvector()` measures the eigenvector centralization for a
 #'   network as a single score.

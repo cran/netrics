@@ -8,13 +8,13 @@
 \alias{node_is_exposed}
 \title{Marks of nodes based on diffusion properties}
 \usage{
-node_is_latent(.data, time = 0)
+node_is_latent(.data, time = 0, attribute = "diffusion")
 
-node_is_infected(.data, time = 0)
+node_is_infected(.data, time = 0, attribute = "diffusion")
 
-node_is_recovered(.data, time = 0)
+node_is_recovered(.data, time = 0, attribute = "diffusion")
 
-node_is_exposed(.data, mark, time = 0)
+node_is_exposed(.data, mark, time = 0, attribute = "diffusion")
 }
 \arguments{
 \item{.data}{A network object of class \code{stocnet}, \code{igraph}, \code{tbl_graph}, \code{network}, or similar.
@@ -22,6 +22,10 @@ Internally any of these will be coerced to an efficient implementation.
 For more information on possible coercions, see e.g. \code{\link[manynet:as_stocnet]{manynet::as_stocnet()}}.}
 
 \item{time}{A time step at which nodes are identified.}
+
+\item{attribute}{Name of the nodal attribute that holds the diffusion,
+as its start state on the nodes and as its changes.
+By default "diffusion", as in \code{play_diffusion()}.}
 
 \item{mark}{vector denoting which nodes are infected}
 }
@@ -40,33 +44,6 @@ nodes in a network identifying which hold certain properties or positions in the
 \item \code{node_is_recovered()} marks nodes that are recovered at a particular time point.
 }
 }
-\section{Cognitive social structures}{
-
-A cognitive social structure records each node's report of the ties in
-the whole network, in a \code{by} column that names who reported each tie.
-Counting every report as a tie of its own would count each tie once for
-every perceiver who reports it.
-So the functions here first combine the reports into the locally
-aggregated structure of Krackhardt (1987), with the intersection rule:
-a tie exists if both of its ends report it, and a message says so.
-A tie that names no reporter is kept as it is.
-
-A tie-level function still returns one value for each report,
-so that the result can be added back to the network it was given.
-Each report takes the value of the tie that it reports.
-A report of a tie that is not in the aggregated structure takes \code{NA},
-or \code{FALSE} for a mark.
-\code{tie_is_random()} is the exception, and draws among the reports.
-
-To combine the reports in a different way, do this before the function,
-e.g. with \code{manynet::to_aggregated(over = "by")}.
-
-Krackhardt, David. 1987.
-"Cognitive social structures".
-\emph{Social Networks} 9(2): 109-134.
-\doi{10.1016/0378-8733(87)90009-8}
-}
-
 \section{Exposed}{
 
 \code{node_is_exposed()} is similar to \code{node_exposure()},
@@ -74,14 +51,13 @@ but returns a mark (TRUE/FALSE) vector indicating which nodes
 are currently exposed to the diffusion content.
 This diffusion content can be expressed in the 'mark' argument.
 If no 'mark' argument is provided,
-and '.data' is a diff_model object,
-then the function will return nodes exposure to the seed nodes
-in that diffusion.
+the function marks the nodes exposed at \code{time}
+to the nodes infected in the diffusion.
 }
 
 \examples{
   # To mark nodes that are latent by a particular time point
-  node_is_latent(play_diffusion(create_tree(6), latency = 1), time = 1)
+  node_is_latent(play_diffusion(create_tree(6), onset = 0), time = 1)
   # To mark nodes that are infected by a particular time point
   node_is_infected(play_diffusion(create_tree(6)), time = 1)
   # To mark nodes that are recovered by a particular time point
@@ -106,6 +82,7 @@ Other nodal:
 \code{\link{mark_degree}},
 \code{\link{mark_nodes}},
 \code{\link{mark_select_node}},
+\code{\link{measure_accuracy_node}},
 \code{\link{measure_assort_node}},
 \code{\link{measure_broker_node}},
 \code{\link{measure_brokerage}},
@@ -117,6 +94,8 @@ Other nodal:
 \code{\link{measure_core}},
 \code{\link{measure_diffusion_node}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_domain}},
+\code{\link{measure_opinion}},
 \code{\link{member_brokerage}},
 \code{\link{member_cliques}},
 \code{\link{member_community}},
@@ -128,6 +107,7 @@ Other nodal:
 \code{\link{member_core}},
 \code{\link{member_diffusion}},
 \code{\link{member_equivalence}},
+\code{\link{motif_accuracy_node}},
 \code{\link{motif_brokerage_node}},
 \code{\link{motif_clique}},
 \code{\link{motif_composition}},

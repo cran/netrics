@@ -1,3 +1,193 @@
+# netrics 1.2.0
+
+## Marks
+
+- Renamed `tie_is_multiple()` to `tie_is_repeated()`, apart from `manynet::tie_is_parallel()` (closes #38)
+- Added `attribute="diffusion"` to diffusion marks, measures, memberships, and motifs
+- Added `tie_is_mainpath()` for the local or global main path of an acyclic network
+- Added `tie_is_long()` for the ties whose two ends have no common neighbour (Centola and Macy 2007)
+- Fixed `tie_is_bridge()` returning an invisible vector without the `tie_mark` class
+- Fixed diffusion marks losing the diffusion of `diff_model` objects
+  - `node_is_infected()`, `node_is_latent()`, `node_is_recovered()`, `node_is_exposed()`
+
+## Measures
+
+- Improved `net_by_reproduction()` to estimate R0 as the chance of transmission over a tie times the excess degree
+  - Fixed the old estimate, which mixed the contagion with the network and was often on the wrong side of 1
+  - Added a warning and `NA` where no susceptible node was exposed
+- Fixed `net_by_immunity()` ignoring the structure of the network, through `net_by_reproduction()`
+- Added `tie_by_mainpath()` for the traversal counts of main path analysis
+  - `variant=` "spc" (default), "splc", or "spnp"
+- Added `net_by_polarisation()` and `net_by_disagreement()` for numeric heterogeneity
+- Added `node_by_concentration()` and `net_by_concentration()` for Getis–Ord hot spots
+- Added opinion measures on `manynet::to_influence()`, with any "stubbornness" attribute
+  - Added `node_by_influence()` and `net_by_influence()` for social power and wise crowds
+  - Added absolute weights to the influence measures, so a pull away along a negative tie counts
+  - Added `node_by_opinion()` for the opinions where an opinion dynamic settles
+  - Added `net_by_convergence()` for the speed at which the opinions settle
+- Added complex contagion measures
+  - Added `tie_by_width()` for the width of the bridge that each tie is in
+  - Added `node_by_contagion()` for complex centrality (Guilbeault and Centola 2021)
+  - Added `net_by_tipping()` for the fewest seeds a threshold contagion needs to complete
+- Improved `net_by_factions()` to handle signed networks, measuring polarisation
+  - Added `variant = "esteban"` for Esteban–Ray polarisation
+- Added "rao" and `distance=` to `*_by_diversity()` for Rao–Stirling diversity
+- Improved attribute-based measures to run without an `attribute=` argument
+  where there is only one available attribute, and error where there are several
+- Added `normalized=` to `net_by_diversity()`, `node_by_diversity()`, and `tie_by_diversity()`
+  - Blau's index is divided by its maximum, 1 - 1/k, by default
+  - `normalized = FALSE` gives the previous values
+- Added `node_by_indeg()` and `node_by_outdeg()` as unnormalised degree shortcuts
+- Improved `*_by_harmonic()` to return straightness centrality for spatial networks (closes #49)
+- Improved `node_by_adopt_exposure()`
+  - Added `direction=`; "in" by default as before
+  - Fixed `diff_model` objects losing their diffusion
+  - Fixed two-mode networks, which failed or counted the wrong nodes
+  - Fixed nodes that are never `active` counting as contacts
+- Improved `node_by_adopt_threshold()` (closes #1, thanks @henriquesposito)
+  - Added `direction=` for exposure along arcs "in", "out", or "all"
+  - Fixed `lag = 0` returning only zeros
+  - Fixed directed networks normalising by total degree rather than by `direction=`
+  - Fixed adopters without ties returning `NaN` rather than 0
+  - Fixed `diff_model` objects ignoring `lag=` and `direction=`
+  - Improved seeds to return `NA` rather than 0, so they do not lower averages
+  - Updated the documentation on reproducing `netdiffuseR::threshold()`
+  - Fixed two-mode networks normalising by degree rather than by co-affiliation
+  - Fixed nodes that are never `active` counting as contacts that had not adopted
+- Fixed `node_by_adopt_time()` and `node_in_adopter()` categorising inactive nodes
+- Fixed `net_by_infection_complete()` and `net_by_infection_peak()` working without diffusions
+
+## Motifs
+
+- Fixed `node_x_exposure()` on `diff_model` objects and two-mode diffusions
+- Improved attribute-based motifs to run without an `attribute=` argument
+  where there is only one available attribute, and error where there are several
+
+## Tutorials
+
+- Fixed the "Position and Equivalence" tutorial to offer to install `{sna}`
+- Added a "Galois lattices" section to the "Community" tutorial (closes #40)
+- Updated tutorials for the 'stocnet' datasets of `{manynet}` 2.5.0 (stocnet/manynet#186)
+  - Fixed "Centrality" tutorial to two-mode `ison_brandes` with `rename_nodes(mode = twomode_type)`
+  - Fixed "Position and Equivalence" tutorial to drop the `layer` tie attribute of `ison_algebra`
+
+# netrics 1.1.4
+
+## Measures
+
+- Added `node_by_domain()` to summarise an attribute over each node's domain
+
+# netrics 1.1.3
+
+## Package
+
+- Fixed website deployment by adding the accuracy measures to the pkgdown reference index
+
+## Marks
+
+- Fixed `node_is_mentor()` on two-mode networks by selecting the elites within each mode
+
+## Measures
+
+- Accelerated `node_by_constraint()` on 2mode via matrix algebra (90x faster on n=1000)
+  - This also speeds up `node_by_hierarchy()`
+- Accelerated `node_by_redundancy()`, `node_by_effsize()`, and `node_by_efficiency()` 
+  on 2mode by vectorising the redundancy (10-20x faster on n=1000)
+- Fixed `node_by_constraint()`, `node_by_hierarchy()`, and `node_by_redundancy()` 
+  on multilevel networks, by treating them as one-mode as `node_by_effsize()` does
+
+## Methods
+
+- Fixed `coreness_hub()` on two-mode networks by reading the degrees over all nodes
+
+## Motifs
+
+- Improved `node_x_clique()` and `node_x_percolation()` by finding 2mode cliques 
+  and their incidence without a loop over cliques
+
+# netrics 1.1.2
+
+## Package
+
+- Updated function documentation sections to be about the outputs not the inputs
+
+## Motifs
+
+- Added `node_x_accuracy()` for the confusion matrix of each reporter's view 
+  of a CSS against an ideal, by default its LAS (closes #37)
+
+## Measures
+
+- Added `node_by_accuracy()` and `net_by_accuracy()` for how well reporters' views 
+  of a CSS on average agree with an ideal (closes #37)
+- Added `net_by_robustness()` for how the giant component shrinks as nodes are removed (closes #42)
+  - By default nodes fail at random
+  - Passing `node_measure` a vector will target nodes by these values
+  - An adaptive attack can be simulated by passing `node_measure` to `attack=`
+  - Share remaining after each removal is kept as a `curve` attribute
+
+# netrics 1.1.1
+
+## Package
+
+- Raised the 'manynet' floor to 2.4.0
+- Added design principles to the README and the contributing guide
+
+## Marks
+
+- Improved `node_is_neighbor()` to take a `cutoff`, marking every node within that distance of the given node
+
+## Memberships
+
+- Improved `node_in_community()` to also consider `node_in_leiden()` and `node_in_partition()` for signed networks
+- Improved `node_in_faction()` to read signs rather than set negative ties aside
+  - `"hamming"` counts negative ties within factions and the positive ties between them
+  - `"phi"` correlates each pair's sign with whether it shares a faction
+  - `"modularity"` maximises signed modularity
+- Fixed `node_in_leiden()` taking a negative default resolution on a negative-dominant signed network
+
+## Motifs
+
+- Improved net and node level motif censuses (closes #24)
+  - For multiplex networks, they now split motifs by layer, e.g. `021D_f.ft`
+  - For signed networks, they now split motifs by sign, e.g. `300_++-`
+  - For attributed networks, they now split motifs by how each pair of positions compares, e.g. `021D_!!=` for categories or `021D_>><` for ordered values
+  - Improved their speed by enumerating only connected node sets and counting the disconnected motifs
+    - For sparse networks (mean degree 6), `net_x_tetrad()` takes 0.05s rather than 7s for 100 nodes, and 0.5s for 1000 nodes, which was not feasible before
+    - For sparse networks, `node_x_tetrad()` takes 0.1s rather than 20s for 100 nodes, and under 1s for 1000 nodes
+    - For sparse networks, `node_x_triad()` takes 0.07s rather than 2.4s for 1000 nodes
+    - Gains are smaller for dense networks, where most node sets are connected, but these are still 2-7 times faster
+    - `net_x_dyad()`, `node_x_dyad()`, and `net_x_triad()` were already fast and remain so
+  - Fixed `*_x_tetrad()` never reporting `U4` lines, which were counted as `D4`
+  - Fixed `net_x_tetrad()` counting each tie twice, which mislabelled and dropped tetrads
+  - Fixed `node_x_dyad()` counting each node's dyad with itself as `Null`
+  - Fixed `node_x_dyad()` dropping ties weighted below 1, which `net_x_dyad()` counted
+  - Deprecated passing a second network to `net_x_triad()`, `net_x_mixed()` defunct
+
+## Measures
+
+- Added `"moran"` to the `assortativity` options of `net_by_homophily()` and `node_by_homophily()`
+  - `net_by_homophily()` returns global Moran's I, which `net_by_spatial()` also gives
+  - `node_by_homophily()` returns local Moran's I (Anselin 1995), which sums to the global value times the total tie weight
+  - A numeric attribute still takes Geary's C where no index is given
+- Added `net_by_meshedness()` for Kansky's alpha index, the number of independent cycles relative to the most a planar network could have
+- Added `tie_by_diversity()` for the diversity of the nodes that each tie joins, with the same `diversity` options as `node_by_diversity()` (closes #44)
+- Fixed `node_by_power()` failing in the matrix solver where the exponent has no solution
+- Fixed `net_by_core()` and `net_by_divergence()` comparing the network with an ideal whose core and periphery were swapped
+- Fixed `net_by_smallworld()` to compare clustering with a (ring) lattice of the network's own density
+- Improved `net_by_modularity()` to return signed modularity (Gómez, Jensen, and Arenas 2009) for signed networks
+  - A negative tie inside a group now counts against the partition
+
+## Tutorials
+
+- Corrected the "Topology" tutorial on the small-world coefficient
+  - Default 'omega' ranges between -1 and 1, whereas it gave 0 to 1 range of 'SWI'
+  - The exercise now uses a rewiring of 0.025 like elsewhere in the tutorial
+- Updated the "Topology" tutorial with consistent argument naming
+- Updated the "Topology" tutorial's core-periphery question for the fixed `net_by_core()`
+- Updated the "Position" tutorial to use `mutate_nodes()` instead of `mutate()`
+- Added a "Random baselines" section to the "Community" tutorial
+
 # netrics 1.1.0
 
 ## Package

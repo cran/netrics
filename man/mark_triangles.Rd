@@ -48,43 +48,14 @@ and fully reciprocated.
 They are most useful in highlighting parts of the network that
 are cohesively connected.
 }
-\section{Cognitive social structures}{
-
-A cognitive social structure records each node's report of the ties in
-the whole network, in a \code{by} column that names who reported each tie.
-Counting every report as a tie of its own would count each tie once for
-every perceiver who reports it.
-So the functions here first combine the reports into the locally
-aggregated structure of Krackhardt (1987), with the intersection rule:
-a tie exists if both of its ends report it, and a message says so.
-A tie that names no reporter is kept as it is.
-
-A tie-level function still returns one value for each report,
-so that the result can be added back to the network it was given.
-Each report takes the value of the tie that it reports.
-A report of a tie that is not in the aggregated structure takes \code{NA},
-or \code{FALSE} for a mark.
-\code{tie_is_random()} is the exception, and draws among the reports.
-
-To combine the reports in a different way, do this before the function,
-e.g. with \code{manynet::to_aggregated(over = "by")}.
-
-Krackhardt, David. 1987.
-"Cognitive social structures".
-\emph{Social Networks} 9(2): 109-134.
-\doi{10.1016/0378-8733(87)90009-8}
-}
-
-\section{Signed networks}{
-
+\details{
+For signed networks, each tie is read by its magnitude,
+and every tie keeps its place in the returned vector.
 These marks ask only whether a two-path exists, as a census does, so a tie
-counts however it is signed. Where the network is signed, each tie is
-therefore read by its magnitude, and every tie keeps its place in the
-returned vector.
+counts however it is signed.
 }
-
 \examples{
-ison_monks |> to_uniplex("like") |> 
+ison_monks |> to_layer("like") |> 
   mutate_ties(tri = tie_is_triangular())
 ison_adolescents |> to_directed() |> 
   mutate_ties(trans = tie_is_transitive())
@@ -92,9 +63,9 @@ ison_adolescents |> to_directed() |>
   mutate_ties(trip = tie_is_triplet())
 ison_adolescents |> to_directed() |> 
   mutate_ties(cyc = tie_is_cyclical())
-ison_monks |> to_uniplex("like") |> 
+ison_monks |> to_layer("like") |> 
   mutate_ties(simmel = tie_is_simmelian())
-fict_marvel |> to_uniplex("relationship") |> tie_is_imbalanced()
+fict_marvel |> to_layer("relationship") |> tie_is_imbalanced()
 }
 \seealso{
 Other marks:
@@ -111,12 +82,13 @@ Other tie:
 \code{\link{mark_dyads}},
 \code{\link{mark_select_tie}},
 \code{\link{mark_ties}},
-\code{\link{measure_broker_tie}},
 \code{\link{measure_central_tie_between}},
 \code{\link{measure_central_tie_close}},
 \code{\link{measure_central_tie_degree}},
 \code{\link{measure_central_tie_eigen}},
-\code{\link{member_community_link}}
+\code{\link{measure_diverse_tie}},
+\code{\link{member_community_link}},
+\code{\link[=tie_by_width]{tie_by_width()}}
 
 Other cohesion:
 \code{\link{measure_breadth}},

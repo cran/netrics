@@ -3,9 +3,12 @@
 \name{measure_central_tie_between}
 \alias{measure_central_tie_between}
 \alias{tie_by_betweenness}
+\alias{tie_by_mainpath}
 \title{Measures of tie betweenness-like centrality}
 \usage{
 tie_by_betweenness(.data, normalized = TRUE)
+
+tie_by_mainpath(.data, variant = c("spc", "splc", "spnp"), normalized = TRUE)
 }
 \arguments{
 \item{.data}{A network object of class \code{stocnet}, \code{igraph}, \code{tbl_graph}, \code{network}, or similar.
@@ -16,6 +19,11 @@ For more information on possible coercions, see e.g. \code{\link[manynet:as_stoc
 Different denominators may be used depending on the measure,
 whether the object is one-mode or two-mode, and other arguments.
 By default TRUE.}
+
+\item{variant}{Which traversal count to compute:
+"spc" (the default), "splc", or "spnp".
+See the section on main path traversal counts.
+The variant chosen is reported when the result is printed.}
 }
 \value{
 A \code{tie_measure} numeric vector the length of the ties in the network,
@@ -32,6 +40,8 @@ All can be retrieved with \code{attr()}.
 }
 \description{
 \code{tie_by_betweenness()} measures the number of shortest paths going through a tie.
+\code{tie_by_mainpath()} measures the number of all paths going through a tie
+in a directed acyclic network, such as a citation network.
 
 All measures attempt to use as much information as they are offered,
 including whether the networks are directed, weighted, or multimodal.
@@ -40,43 +50,6 @@ first transform the salient properties using e.g. \code{\link[manynet:to_undirec
 All centrality and centralization measures return normalized measures by default,
 including for two-mode networks.
 }
-\section{Cognitive social structures}{
-
-A cognitive social structure records each node's report of the ties in
-the whole network, in a \code{by} column that names who reported each tie.
-Counting every report as a tie of its own would count each tie once for
-every perceiver who reports it.
-So the functions here first combine the reports into the locally
-aggregated structure of Krackhardt (1987), with the intersection rule:
-a tie exists if both of its ends report it, and a message says so.
-A tie that names no reporter is kept as it is.
-
-A tie-level function still returns one value for each report,
-so that the result can be added back to the network it was given.
-Each report takes the value of the tie that it reports.
-A report of a tie that is not in the aggregated structure takes \code{NA},
-or \code{FALSE} for a mark.
-\code{tie_is_random()} is the exception, and draws among the reports.
-
-To combine the reports in a different way, do this before the function,
-e.g. with \code{manynet::to_aggregated(over = "by")}.
-
-Krackhardt, David. 1987.
-"Cognitive social structures".
-\emph{Social Networks} 9(2): 109-134.
-\doi{10.1016/0378-8733(87)90009-8}
-}
-
-\section{Signed networks}{
-
-A tie measure holds one value per tie, so \code{tie_by_betweenness()} cannot
-drop the negative ties as the distance measures at the node and network
-level do. It reads each tie by its magnitude instead, which is what
-\code{\link[=node_by_betweenness]{node_by_betweenness()}} in effect does for a network whose ties are signed
-but not weighted. Use \code{\link[manynet:to_unsigned]{manynet::to_unsigned()}} first to control this
-yourself.
-}
-
 \section{Edge betweenness centrality}{
 
 The betweenness centrality of a tie, also known as \emph{edge betweenness},
@@ -84,11 +57,74 @@ counts the shortest paths between other nodes that run along it.
 It is best known as the quantity iteratively recomputed by the
 Girvan-Newman community detection algorithm, where the ties with the
 highest betweenness are removed first; see \code{\link[=node_in_betweenness]{node_in_betweenness()}}.
+
+For signed networks, \code{tie_by_betweenness()} reads each tie by its magnitude.
+A tie measure holds one value per tie, so it cannot
+drop the negative ties as the distance measures at the node and network
+level do. This is what
+\code{\link[=node_by_betweenness]{node_by_betweenness()}} in effect does for a network whose ties are signed
+but not weighted. Use \code{\link[manynet:to_unsigned]{manynet::to_unsigned()}} first to control this
+yourself.
+}
+
+\section{Main path traversal counts}{
+
+Main path analysis traces the most important lines of development
+through a directed acyclic network, such as a network of citations,
+patents, or judgments that cite earlier ones (Hummon and Doreian 1989).
+Each tie gets a traversal count: the number of paths through the network
+that run along it.
+A tie that many paths must use is a critical step in the flow of
+knowledge from earlier to later nodes.
+\code{\link[=tie_is_mainpath]{tie_is_mainpath()}} then marks the main path itself.
+
+The counts are like edge betweenness, except that they count every path,
+not only the shortest ones.
+This is possible because a network without cycles holds a finite number
+of paths.
+The number of paths through a tie from \eqn{u} to \eqn{v} is
+the number of paths that arrive at \eqn{u}
+multiplied by the number of paths that leave from \eqn{v},
+and both are counted in one pass through a topological order of the nodes
+(Batagelj 2003).
+
+The variants differ in where a path can start and end:
+\itemize{
+\item "spc", the search path count (Batagelj 2003), counts the paths from
+a source, a node with no incoming ties, to a sink, a node with no
+outgoing ties.
+This is the usual choice, and does not change if all ties are reversed.
+\item "splc", the search path link count (Hummon and Doreian 1989), counts
+the paths from any node to a sink, so every node can start a line of
+development.
+\item "spnp", the search path node pair count (Hummon and Doreian 1989),
+counts the paths from any node to any other node,
+so ties in the middle of long chains count more than ties at either end.
+}
+
+Normalised counts are divided by the number of paths that the variant
+counts, so a tie that every such path runs along scores 1.
+
+"splc" depends on the direction of the ties.
+For a citation network, the ties should point from the cited work to the
+citing work, as knowledge flows; use \code{\link[manynet:to_redirected]{manynet::to_redirected()}}
+to reverse ties that point from the citing work to the cited one.
+
+For networks with cycles, \code{tie_by_mainpath()} stops with an error.
+Use \code{\link[manynet:to_acyclic]{manynet::to_acyclic()}} first, and \code{\link[=tie_is_feedback]{tie_is_feedback()}} to see the
+ties that it would remove.
+For undirected networks, \code{tie_by_mainpath()} also stops,
+since a main path needs a direction.
+For weighted or signed networks, \code{tie_by_mainpath()} counts paths along
+every tie however it is weighted or signed.
 }
 
 \examples{
 (tb <- tie_by_betweenness(ison_adolescents))
 ison_adolescents |> mutate_ties(weight = tb)
+citations <- create_explicit(A-+C, B-+C, B-+D, C-+E, D-+E, E-+F, D-+F)
+tie_by_mainpath(citations)
+tie_by_mainpath(citations, variant = "splc", normalized = FALSE)
 }
 \references{
 \subsection{On edge betweenness centrality}{
@@ -102,6 +138,26 @@ Brandes, Ulrik. 2001.
 "A faster algorithm for betweenness centrality".
 \emph{Journal of Mathematical Sociology} 25(2): 163-177.
 \doi{10.1080/0022250X.2001.9990249}
+}
+
+\subsection{On main path analysis}{
+
+Hummon, Norman P., and Patrick Doreian. 1989.
+"Connectivity in a citation network: The development of DNA theory".
+\emph{Social Networks} 11(1): 39-63.
+\doi{10.1016/0378-8733(89)90017-8}
+
+Batagelj, Vladimir. 2003.
+"Efficient algorithms for citation network analysis".
+\emph{arXiv} cs/0309023.
+\doi{10.48550/arXiv.cs/0309023}
+
+Liu, John S., and Louis Y.Y. Lu. 2012.
+"An integrated approach for main path analysis:
+Development of the Hirsch index as an example".
+\emph{Journal of the American Society for Information Science and Technology}
+63(3): 528-542.
+\doi{10.1002/asi.21692}
 }
 }
 \seealso{
@@ -123,11 +179,12 @@ Other centrality:
 \code{\link{measure_centralisation_eigen}}
 
 Other measures:
+\code{\link{measure_accuracy_net}},
+\code{\link{measure_accuracy_node}},
 \code{\link{measure_assort_net}},
 \code{\link{measure_assort_node}},
 \code{\link{measure_breadth}},
 \code{\link{measure_broker_node}},
-\code{\link{measure_broker_tie}},
 \code{\link{measure_brokerage}},
 \code{\link{measure_central_between}},
 \code{\link{measure_central_close}},
@@ -143,24 +200,30 @@ Other measures:
 \code{\link{measure_diffusion_infection}},
 \code{\link{measure_diffusion_net}},
 \code{\link{measure_diffusion_node}},
+\code{\link{measure_diverse_dispersion}},
 \code{\link{measure_diverse_net}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_diverse_tie}},
+\code{\link{measure_domain}},
 \code{\link{measure_features}},
 \code{\link{measure_fit}},
 \code{\link{measure_fragmentation}},
 \code{\link{measure_hierarchy}},
-\code{\link{measure_periods}}
+\code{\link{measure_opinion}},
+\code{\link{measure_periods}},
+\code{\link[=tie_by_width]{tie_by_width()}}
 
 Other tie:
 \code{\link{mark_dyads}},
 \code{\link{mark_select_tie}},
 \code{\link{mark_ties}},
 \code{\link{mark_triangles}},
-\code{\link{measure_broker_tie}},
 \code{\link{measure_central_tie_close}},
 \code{\link{measure_central_tie_degree}},
 \code{\link{measure_central_tie_eigen}},
-\code{\link{member_community_link}}
+\code{\link{measure_diverse_tie}},
+\code{\link{member_community_link}},
+\code{\link[=tie_by_width]{tie_by_width()}}
 }
 \concept{betweenness}
 \concept{centrality}

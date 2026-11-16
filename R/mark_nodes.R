@@ -2,7 +2,6 @@
 
 #' Marks of nodes based on structural properties
 #' @name mark_nodes
-#' @template section_cognitive
 #' @description 
 #'   These functions return logical vectors the length of the 
 #'   nodes in a network identifying which hold certain properties or positions in the network.
@@ -17,15 +16,15 @@
 #'   - `node_is_neighbor()` marks nodes that are neighbours of a given node.
 #' @template param_data
 #' @template node_mark
-#' @section Signed networks:
-#'   `node_is_fold()` reads a tie as a distance, and a negative tie is
-#'   hostility rather than a channel along which cohesion travels, so where the
-#'   network is signed it considers only the positive ties.
-#' @section Multilevel networks:
+#' @details
+#'   For signed networks, `node_is_fold()` considers only the positive ties.
+#'   It reads a tie as a distance, and a negative tie is
+#'   hostility rather than a channel along which cohesion travels.
+#'
+#'   For multilevel networks, `node_is_independent()` marks the network whole,
+#'   as [net_by_independence()] does.
 #'   A multilevel network reports itself as two-mode, but holds ties within a
 #'   mode as well as between them, so it cannot be projected onto one mode.
-#'   `node_is_independent()` therefore marks a multilevel network whole, as
-#'   [net_by_independence()] does.
 NULL
 
 #' @rdname mark_nodes
@@ -81,7 +80,7 @@ node_is_independent <- function(.data){
 #' _SIAM Journal on Computing_ 14(4): 862-874.
 #' \doi{10.1137/0214061}
 #' @examples 
-#' node_is_cutpoint(ison_brandes)
+#' node_is_cutpoint(ison_centrality)
 #' @export
 node_is_cutpoint <- function(.data){
   .data <- manynet::expect_nodes(.data)
@@ -131,7 +130,8 @@ node_is_fold <- function(.data){
 #'   This means that the top 10% of nodes in terms of degree,
 #'   or those equal to the highest rank degree in the network,
 #'   whichever is the higher, will be used to select the mentors.
-#'   
+#'   In a two-mode network the mentors are selected within each mode.
+#'
 #'   Note that if nodes are equidistant from two mentors,
 #'   they will choose one at random.
 #'   If a node is without a path to a mentor,
@@ -148,22 +148,59 @@ node_is_fold <- function(.data){
 node_is_mentor <- function(.data, elites = 0.1){
   .data <- manynet::expect_nodes(.data)
   .data <- .to_aggregated_css(.data)
-  indegs <- colSums(manynet::as_matrix(.data)) # get rank order of indegrees
+  # get rank order of indegrees, over all nodes of a two-mode network
+  indegs <- colSums(manynet::as_matrix(manynet::to_onemode(.data)))
+  # but the elites of a two-mode network are chosen within each mode
+  modes <- if(manynet::is_twomode(.data))
+    as.logical(manynet::node_is_mode(.data)) else rep(FALSE, length(indegs))
+  out <- logical(length(indegs))
+  for(m in unique(modes))
+    out[modes == m] <- .mentors(indegs[modes == m], elites)
+  make_node_mark(out, .data)
+}
+
+# The nodes with the highest indegree, or the top `elites` share of nodes by
+# indegree where that is more.
+.mentors <- function(indegs, elites){
   out <- indegs == max(indegs)
   if(sum(out) < length(indegs)*elites){
     out <- indegs %in% unique(sort(indegs, decreasing=TRUE)[seq_len(length(indegs)*elites)])
   }
-  make_node_mark(out, .data)
+  out
 }
 
 #' @rdname mark_nodes
 #' @param node A node ID or name for which neighbors are to be marked.
+#' @template param_cutoff
+#' @section Neighbourhoods:
+#'   By default, `node_is_neighbor()` marks the nodes that `node` has a tie to.
+#'   Given a `cutoff`, it instead marks every node that can be reached from
+#'   `node` along a path no longer than `cutoff`, but not `node` itself.
+#'   Where the ties have a 'length' attribute,
+#'   such as [manynet::read_geojson()] measures along each line,
+#'   a path is as long as the sum of the lengths of its ties,
+#'   so that `cutoff` can be, for example, a travel distance or time
+#'   (an _isochrone_);
+#'   otherwise a path is as long as the number of ties it crosses.
+#'   Weights are strengths and not distances, so they are not read.
+#' @examples
+#' node_is_neighbor(ison_adolescents, "Betty", cutoff = 2)
 #' @export
-node_is_neighbor <- function(.data, node){
+node_is_neighbor <- function(.data, node, cutoff = 1){
   .data <- manynet::expect_nodes(.data)
   .data <- .to_aggregated_css(.data)
   .data <- manynet::as_igraph(.data)
-  out <- igraph::V(.data) %in% igraph::neighbors(.data, v = node)
+  if(missing(cutoff)){
+    out <- igraph::V(.data) %in% igraph::neighbors(.data, v = node)
+  } else {
+    # NA rather than NULL weights, since igraph would otherwise read the
+    # weights as lengths
+    len <- igraph::edge_attr(.data, "length")
+    if(is.null(len)) len <- NA
+    dists <- igraph::distances(.data, v = node, mode = "out",
+                               weights = len)[1,]
+    out <- dists <= cutoff & seq_along(dists) != igraph::V(.data)[node]
+  }
   make_node_mark(out, .data)
 }
 
@@ -171,7 +208,6 @@ node_is_neighbor <- function(.data, node){
 
 #' Marks of nodes based on degree properties
 #' @name mark_degree
-#' @template section_cognitive
 #' @description
 #'   These functions return logical vectors the length of the 
 #'   nodes in a network identifying which hold certain properties or positions in the network.
@@ -189,7 +225,7 @@ NULL
 
 #' @rdname mark_degree
 #' @examples 
-#' node_is_isolate(ison_brandes)
+#' node_is_isolate(ison_centrality)
 #' @export
 node_is_isolate <- function(.data){
   .data <- manynet::expect_nodes(.data)
@@ -251,51 +287,18 @@ node_is_universal <- function(.data){
 #'   - `node_is_recovered()` marks nodes that are recovered at a particular time point.
 #' @inheritParams mark_nodes
 #' @template node_mark
+#' @template param_attr_diff
 #' @family diffusion
 #' @name mark_diff
-#' @template section_cognitive
 NULL
 
 #' @rdname mark_diff 
 #' @examples
 #'   # To mark nodes that are latent by a particular time point
-#'   node_is_latent(play_diffusion(create_tree(6), latency = 1), time = 1)
+#'   node_is_latent(play_diffusion(create_tree(6), onset = 0), time = 1)
 #' @export
-node_is_latent <- function(.data, time = 0){
-  .data <- manynet::expect_nodes(.data)
-  if(manynet::is_changing(.data)){
-    t <- time
-    latent <- manynet::as_changelist(.data) |> 
-      dplyr::filter(time <= t & value %in% c("E", "I")) |>
-      dplyr::group_by(node) |>
-      dplyr::mutate(n = dplyr::n()) |>
-      dplyr::filter(n == 1 & value == "E")
-    if (manynet::is_labelled(.data)) {
-      out <- seq_len(manynet::net_nodes(.data)) %in% latent$node
-      names(out) <- manynet::node_names(.data)
-    } else {
-      out <- seq_len(manynet::net_nodes(.data)) %in% latent$node
-    }
-    make_node_mark(out, .data)
-  } else if(inherits(.data, "diff_model")){
-    latent <- summary(.data) |>
-      dplyr::filter(t <= time & event %in% c("E", "I")) |>
-      dplyr::group_by(nodes) |>
-      dplyr::mutate(n = dplyr::n()) |>
-      dplyr::filter(n == 1 & event == "E")
-    net <- attr(.data, "network")
-    if (manynet::is_labelled(net)) {
-      out <- seq_len(manynet::net_nodes(net)) %in% latent$nodes
-      names(out) <- manynet::node_names(net)
-    } else {
-      out <- seq_len(manynet::net_nodes(net)) %in% latent$nodes
-    }
-    make_node_mark(out, net)
-  } else {
-    out <- manynet::to_time(.data, time)
-    out <- manynet::node_attribute(out, "diffusion") == "E"
-    make_node_mark(out, .data)
-  }
+node_is_latent <- function(.data, time = 0, attribute = "diffusion"){
+  .diffusion_mark(.data, time, attribute, "E")
 }
 
 #' @rdname mark_diff 
@@ -304,41 +307,8 @@ node_is_latent <- function(.data, time = 0){
 #'   # To mark nodes that are infected by a particular time point
 #'   node_is_infected(play_diffusion(create_tree(6)), time = 1)
 #' @export
-node_is_infected <- function(.data, time = 0) {
-  .data <- manynet::expect_nodes(.data)
-  if(manynet::is_changing(.data)){
-    t <- time
-    infected <- manynet::as_changelist(.data) |> 
-      dplyr::filter(time <= t & value %in% c("I", "R")) |>
-      dplyr::group_by(node) |>
-      dplyr::mutate(n = dplyr::n()) |>
-      dplyr::filter(n == 1 & value == "I")
-    if (manynet::is_labelled(.data)) {
-      out <- seq_len(manynet::net_nodes(.data)) %in% infected$node
-      names(out) <- manynet::node_names(.data)
-    } else {
-      out <- seq_len(manynet::net_nodes(.data)) %in% infected$node
-    }
-    make_node_mark(out, .data)
-  } else if(inherits(.data, "diff_model")){
-    infected <- summary(.data) |> 
-      dplyr::filter(t <= time & event %in% c("I", "R")) |>
-      dplyr::group_by(nodes) |>
-      dplyr::mutate(n = dplyr::n()) |>
-      dplyr::filter(n == 1 & event == "I")
-    net <- attr(.data, "network")
-    if (manynet::is_labelled(net)) {
-      out <- seq_len(manynet::net_nodes(net)) %in% infected$nodes
-      names(out) <- manynet::node_names(net)
-    } else {
-      out <- seq_len(manynet::net_nodes(net)) %in% infected$nodes
-    }
-    make_node_mark(out, net)
-  } else {
-    out <- manynet::to_time(.data, time)
-    out <- manynet::node_attribute(out, "diffusion") == "I"
-    make_node_mark(out, .data)
-  }
+node_is_infected <- function(.data, time = 0, attribute = "diffusion") {
+  .diffusion_mark(.data, time, attribute, "I")
 }
 
 #' @rdname mark_diff 
@@ -346,41 +316,8 @@ node_is_infected <- function(.data, time = 0) {
 #'   # To mark nodes that are recovered by a particular time point
 #'   node_is_recovered(play_diffusion(create_tree(6), recovery = 0.5), time = 3)
 #' @export
-node_is_recovered <- function(.data, time = 0){
-  .data <- manynet::expect_nodes(.data)
-  if(manynet::is_changing(.data)){
-    t <- time
-    recovered <- manynet::as_changelist(.data) |> 
-      dplyr::filter(time <= t & value %in% c("R")) |>
-      dplyr::group_by(node) |>
-      dplyr::mutate(n = dplyr::n()) |>
-      dplyr::filter(n == 1 & value == "R")
-    if (manynet::is_labelled(.data)) {
-      out <- seq_len(manynet::net_nodes(.data)) %in% recovered$node
-      names(out) <- manynet::node_names(.data)
-    } else {
-      out <- seq_len(manynet::net_nodes(.data)) %in% recovered$node
-    }
-    make_node_mark(out, .data)
-  } else if(inherits(.data, "diff_model")){
-    recovered <- summary(.data) |> 
-      dplyr::filter(t <= time & event == "R") |>
-      dplyr::group_by(nodes) |>
-      dplyr::mutate(n = dplyr::n()) |>
-      dplyr::filter(n == 1)
-    net <- attr(.data, "network")
-    if (manynet::is_labelled(net)) {
-      out <- seq_len(manynet::net_nodes(net)) %in% recovered$nodes
-      names(out) <- manynet::node_names(net)
-    } else {
-      out <- seq_len(manynet::net_nodes(net)) %in% recovered$nodes
-    }
-    make_node_mark(out, net)
-  } else {
-    out <- manynet::to_time(.data, time)
-    out <- manynet::node_attribute(out, "diffusion") == "R"
-    make_node_mark(out, .data)
-  }
+node_is_recovered <- function(.data, time = 0, attribute = "diffusion"){
+  .diffusion_mark(.data, time, attribute, "R")
 }
 
 #' @rdname mark_diff 
@@ -393,9 +330,8 @@ node_is_recovered <- function(.data, time = 0){
 #'   are currently exposed to the diffusion content.
 #'   This diffusion content can be expressed in the 'mark' argument.
 #'   If no 'mark' argument is provided,
-#'   and '.data' is a diff_model object,
-#'   then the function will return nodes exposure to the seed nodes
-#'   in that diffusion.
+#'   the function marks the nodes exposed at `time`
+#'   to the nodes infected in the diffusion.
 #' @param mark vector denoting which nodes are infected
 #' @importFrom dplyr filter select group_by mutate
 #' @examples
@@ -403,20 +339,14 @@ node_is_recovered <- function(.data, time = 0){
 #'   (expos <- node_is_exposed(manynet::create_tree(14), mark = c(1,3)))
 #'   which(expos)
 #' @export
-node_is_exposed <- function(.data, mark, time = 0){
+node_is_exposed <- function(.data, mark, time = 0, attribute = "diffusion"){
+  if(missing(mark)){
+    out <- node_by_adopt_exposure(.data, time = time, attribute = attribute)
+    return(make_node_mark(c(out) > 0, .diffusion_states(.data, attribute)$net))
+  }
+  if(inherits(.data, "diff_model")) .data <- attr(.data, "network")
   .data <- manynet::expect_nodes(.data)
   .data <- .to_aggregated_css(.data)
-  if (missing(mark)){
-    if(manynet::is_changing(.data)){
-      t <- time
-      return(make_node_mark(node_by_adopt_exposure(.data, time = t)>0, .data))
-    } else if(inherits(.data, "diff_model")){
-      mark <- summary(.data) |> 
-        dplyr::filter(t == 0 & event == "I") |> 
-        dplyr::select(nodes) |> unlist()
-      .data <- attr(.data, "network")
-    }    
-  }
   if(is.logical(mark)) mark <- which(mark)
   out <- rep(F, manynet::net_nodes(.data))
   out[unique(setdiff(unlist(igraph::neighborhood(.data, nodes = mark)),
@@ -445,7 +375,7 @@ NULL
 #' @rdname mark_select_node
 #' @template param_select
 #' @examples 
-#' node_is_random(ison_brandes, 2)
+#' node_is_random(ison_centrality, 2)
 #' @export
 node_is_random <- function(.data, select = 1){
   .data <- manynet::expect_nodes(.data)
@@ -463,7 +393,7 @@ node_is_random <- function(.data, select = 1){
 #'   three scores.
 #'   By default, `ranks = 1`.
 #' @examples 
-#' node_is_max(node_by_degree(ison_brandes))
+#' node_is_max(node_by_degree(ison_centrality))
 #' @export
 node_is_max <- function(node_measure, ranks = 1){
   if(!inherits(node_measure, "node_measure"))
@@ -489,7 +419,7 @@ node_is_max <- function(node_measure, ranks = 1){
 
 #' @rdname mark_select_node
 #' @examples 
-#' node_is_min(node_by_degree(ison_brandes))
+#' node_is_min(node_by_degree(ison_centrality))
 #' @export
 node_is_min <- function(node_measure, ranks = 1){
   if(!inherits(node_measure, "node_measure"))
@@ -515,7 +445,7 @@ node_is_min <- function(node_measure, ranks = 1){
 
 #' @rdname mark_select_node
 #' @examples 
-#' node_is_mean(node_by_degree(ison_brandes))
+#' node_is_mean(node_by_degree(ison_centrality))
 #' @export
 node_is_mean <- function(node_measure, ranks = 1){
   if(!inherits(node_measure, "node_measure"))

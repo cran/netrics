@@ -24,18 +24,6 @@ available_methods <- function(fun_vctr) {
   manynet::as_matrix(out)
 }
 
-# Helper function for checking and downloading packages
-thisRequires <- function(pkgname){
-  if (!requireNamespace(pkgname, quietly = TRUE) & interactive()) {
-    if(utils::askYesNo(msg = paste("The", pkgname, 
-                                   "package is required to run this function. Would you like to install", pkgname, "from CRAN?"))) {
-      utils::install.packages(pkgname)
-    } else {
-      manynet::snet_abort(paste("Please install", pkgname, "from CRAN to run this function."))
-    }
-  }
-}
-
 seq_nodes <- function(.data){
   seq.int(manynet::net_nodes(.data))
 }
@@ -117,41 +105,12 @@ seq_nodes <- function(.data){
 # structure, taking the intersection rule: a tie exists where both of its ends
 # report it. The two ends are the nodes that know most about a tie. A tie
 # that names no reporter, such as a formal reporting line, is kept as it is.
-#
-# TODO: `manynet::to_aggregated()` arrived in manynet 2.4.0, but the
-# DESCRIPTION floor is 2.3.5, whose `manynet::as_matrix()` already returns the
-# perceivers' array. The fallback keeps the report of each tie by its sender,
-# where its receiver reports it too, which is the same structure. Remove the
-# fallback and call `manynet::to_aggregated()` directly once the floor is
-# raised to 2.4.0.
 .to_aggregated_css <- function(.data){
   if(!manynet::is_cognitive(.data)) return(.data)
   manynet::snet_info("Combining the perceivers' reports of this cognitive",
                      "social structure into its locally aggregated structure,",
                      "where a tie exists if both of its ends report it.")
-  if("to_aggregated" %in% getNamespaceExports("manynet"))
-    return(getExportedValue("manynet", "to_aggregated")(.data, over = "by",
-                                                        rule = "min",
-                                                        reporters = "both"))
-  .las_intersection(.data)
-}
-
-# The fallback has to return the class it was given, as
-# `manynet::to_aggregated()` does, so it filters the ties in place.
-.las_intersection <- function(.data){
-  g <- manynet::as_igraph(.data)
-  by <- igraph::edge_attr(g, "by")
-  # A network whose ties name no reporter is already its aggregated structure.
-  # Before 'manynet' 2.4.0, coercion could also drop a 'by' column, which would
-  # otherwise leave nothing to filter the ties by.
-  if(is.null(by)) return(.data)
-  ends <- .tie_ends(g)
-  tie <- .tie_keys(g)
-  reported <- paste(tie, by)
-  both <- paste(tie, ends[,1]) %in% reported & paste(tie, ends[,2]) %in% reported
-  keep <- is.na(by) | (by == ends[,1] & both)
-  out <- manynet::filter_ties(.data, keep)
-  manynet::mutate_ties(out, by = NULL)
+  manynet::to_aggregated(.data, over = "by", rule = "min", reporters = "both")
 }
 
 # The two ends of each tie, in the order of `igraph::E()`.
@@ -162,6 +121,32 @@ seq_nodes <- function(.data){
     ends <- matrix(c(pmin(ends[,1], ends[,2]), pmax(ends[,1], ends[,2])),
                    ncol = 2)
   ends
+}
+
+# A hypergraph holds the members of each hyperedge, which a coercion to
+# 'igraph' would turn into the nodes of a second mode. So a hypergraph is kept
+# as a 'stocnet' object, and any other network is coerced as usual.
+.expect_tie_members <- function(.data){
+  if(manynet::is_hypergraph(.data)) manynet::as_stocnet(.data) else
+    manynet::expect_ties(.data)
+}
+
+# The nodes that each tie joins, as a list of node indices in the order of the
+# ties. A loop joins one node, and a hyperedge joins its members, which may be
+# any number of nodes. A hypergraph may hold ties between two nodes in some
+# layers, and these hold no members in `with`.
+.tie_members <- function(.data){
+  if(manynet::is_hypergraph(.data)){
+    ties <- .data$ties
+    dyads <- vapply(ties$with, is.null, logical(1))
+    out <- ties$with
+    out[dyads] <- Map(function(f, t) unique(c(f, t)),
+                      ties$from[dyads], ties$to[dyads])
+    return(lapply(out, function(x) unique(as.integer(x))))
+  }
+  g <- manynet::as_igraph(.data)
+  ends <- igraph::ends(g, igraph::E(g), names = FALSE)
+  lapply(seq_len(nrow(ends)), function(i) unique(ends[i,]))
 }
 
 # One key for each tie, which names its ends and its layer but not who
@@ -200,8 +185,40 @@ seq_nodes <- function(.data){
 .valid_cells <- function(.data, mat){
   keep <- matrix(TRUE, nrow(mat), ncol(mat))
   if(!manynet::is_twomode(.data)){
-    if(!manynet::is_complex(.data)) diag(keep) <- FALSE
+    if(!manynet::is_looped(.data)) diag(keep) <- FALSE
     if(!manynet::is_directed(.data)) keep[upper.tri(keep)] <- FALSE
   }
   keep
+}
+
+# The first mode of a signed two-mode network, tied by "agreement" minus
+# "disagreement", as `manynet::to_mode(.data, 1, "signed")` gives it.
+# That rule is new in 'manynet' 2.5.0. Until the minimum is raised past it,
+# the same signs come from the stances directly: with D the summed stances of
+# each node of the first mode on each node of the second, agreement minus
+# disagreement between two nodes is D %*% t(D). Only the signs of the result
+# are used by `net_by_factions()`, so the size of each stance is not read.
+# Delete this shim once the minimum 'manynet' is 2.5.0.
+.to_signed_mode1 <- function(.data){
+  rules <- eval(formals(manynet::to_mode)$similarity)
+  if("signed" %in% rules) return(manynet::to_mode(.data, 1, "signed"))
+  g <- manynet::as_igraph(.data)
+  first <- !igraph::V(g)$type
+  ties <- igraph::as_edgelist(g, names = FALSE)
+  signs <- as.numeric(manynet::tie_signs(.data))
+  # each tie is one statement, so repeated statements all count
+  from <- ifelse(first[ties[, 1]], ties[, 1], ties[, 2])
+  to <- ifelse(first[ties[, 1]], ties[, 2], ties[, 1])
+  rows <- which(first)
+  cols <- which(!first)
+  stance <- matrix(0, length(rows), length(cols))
+  idx <- cbind(match(from, rows), match(to, cols))
+  for(k in seq_len(nrow(idx)))
+    stance[idx[k, 1], idx[k, 2]] <- stance[idx[k, 1], idx[k, 2]] + signs[k]
+  out <- stance %*% t(stance)
+  diag(out) <- 0
+  if(manynet::is_labelled(.data))
+    dimnames(out) <- list(manynet::node_names(.data)[rows],
+                          manynet::node_names(.data)[rows])
+  manynet::as_igraph(out)
 }

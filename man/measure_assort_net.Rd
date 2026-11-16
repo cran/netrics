@@ -6,6 +6,7 @@
 \alias{net_by_homophily}
 \alias{net_by_assortativity}
 \alias{net_by_spatial}
+\alias{net_by_concentration}
 \title{Measures of network assortativity}
 \usage{
 net_by_heterophily(.data, attribute)
@@ -13,24 +14,30 @@ net_by_heterophily(.data, attribute)
 net_by_homophily(
   .data,
   attribute,
-  assortativity = c("ie", "ei", "yule", "geary")
+  assortativity = c("ie", "ei", "yule", "geary", "moran")
 )
 
 net_by_assortativity(.data)
 
 net_by_spatial(.data, attribute)
+
+net_by_concentration(.data, attribute)
 }
 \arguments{
 \item{.data}{A network object of class \code{stocnet}, \code{igraph}, \code{tbl_graph}, \code{network}, or similar.
 Internally any of these will be coerced to an efficient implementation.
 For more information on possible coercions, see e.g. \code{\link[manynet:as_stocnet]{manynet::as_stocnet()}}.}
 
-\item{attribute}{Name of a nodal attribute, mark, measure, or membership vector.}
+\item{attribute}{Name of a nodal attribute, mark, measure, or membership vector.
+Where none is named and the network holds only one nodal attribute
+besides the reserved ones, such as "label" and "mode", that one is used.}
 
 \item{assortativity}{Which method to use for \verb{*_homophily()}.
 Either "ie" (negative E-I index), "ei" (E-I index),
-"yule" (Yule's Q), or "geary" (Geary's C).
+"yule" (Yule's Q), "geary" (Geary's C), or "moran" (Moran's I).
 Default is "ie".
+The first three are for categorical attributes,
+and the last two for numeric attributes.
 The E-I index is the number of ties between (or \emph{external}) nodes
 grouped in some mutually exclusive categories
 minus the number of ties within (or \emph{internal}) these groups
@@ -63,6 +70,15 @@ The upper bound of 2 holds where every tie carries the same weight.
 Geary's C reads the weights where the network has them,
 and a heavy tie between dissimilar values can then carry the sum past 2,
 so a weighted network declares the upper end open.
+
+Moran's I is a measure of spatial autocorrelation, calculated as:
+\deqn{I = \frac{n}{W} \frac{\sum\limits_{i=1}^n \sum\limits_{j=1}^n
+w_{ij} (x_i - \bar{x})(x_j - \bar{x})}{\sum\limits_{i=1}^n (x_i - \bar{x})^2}}
+with the same terms as Geary's C.
+Positive values indicate that tied nodes hold similar values,
+and negative values that they hold dissimilar ones,
+so it runs the same way as the "ie" index, and the other way to Geary's C.
+See the section on spatial autocorrelation for its range.
 If an incompatible method is chosen for the attribute type,
 a suitable alternative will be used instead with a message.}
 }
@@ -87,6 +103,8 @@ are within groups of nodes with the same attribute, but with more options for me
 \item \code{net_by_assortativity()} measures the degree assortativity in a network.
 \item \code{net_by_spatial()} measures the spatial association/autocorrelation
 (global Moran's I) in a network.
+It is \code{net_by_homophily()} with \code{assortativity = "moran"},
+but it also reads two-mode networks (see below).
 }
 
 Note that for two-mode networks,
@@ -98,33 +116,6 @@ but a message is given and the user can choose to calculate homophily on the
 other mode instead by subsetting the attribute vector and
 converting the network to a one-mode network.
 }
-\section{Cognitive social structures}{
-
-A cognitive social structure records each node's report of the ties in
-the whole network, in a \code{by} column that names who reported each tie.
-Counting every report as a tie of its own would count each tie once for
-every perceiver who reports it.
-So the functions here first combine the reports into the locally
-aggregated structure of Krackhardt (1987), with the intersection rule:
-a tie exists if both of its ends report it, and a message says so.
-A tie that names no reporter is kept as it is.
-
-A tie-level function still returns one value for each report,
-so that the result can be added back to the network it was given.
-Each report takes the value of the tie that it reports.
-A report of a tie that is not in the aggregated structure takes \code{NA},
-or \code{FALSE} for a mark.
-\code{tie_is_random()} is the exception, and draws among the reports.
-
-To combine the reports in a different way, do this before the function,
-e.g. with \code{manynet::to_aggregated(over = "by")}.
-
-Krackhardt, David. 1987.
-"Cognitive social structures".
-\emph{Social Networks} 9(2): 109-134.
-\doi{10.1016/0378-8733(87)90009-8}
-}
-
 \section{Heterophily}{
 
 Given a partition of a network into a number of mutually exclusive groups then
@@ -164,13 +155,27 @@ and \eqn{N}, \eqn{W} and \eqn{\bar{x}} are recomputed on those that remain.
 A missing tie counts as no tie.
 }
 
+\section{Concentration}{
+
+\code{net_by_concentration()} measures whether high values of a positive
+numeric attribute sit together in a network, with the general \eqn{G}
+statistic of Getis and Ord (1992):
+\deqn{G = \frac{\sum_{i \neq j} w_{ij} x_i x_j}{\sum_{i \neq j} x_i x_j}}
+On a network without weights it runs from 0 to 1, and is the share of
+all the products of two values that fall on ties.
+Compare it with the density: a value above the density means that high
+values sit together, and a value below it that low values sit together.
+See \code{node_by_concentration()} for the hot spots and cold spots.
+}
+
 \examples{
-marvel_friends <- to_unsigned(to_uniplex(fict_marvel, "relationship"), "positive")
+marvel_friends <- to_unsigned(to_layer(fict_marvel, "relationship"), "positive")
 net_by_heterophily(marvel_friends, "Gender")
 net_by_heterophily(marvel_friends, "Attractive")
 net_by_homophily(marvel_friends, "Gender")
 net_by_assortativity(ison_networkers)
 net_by_spatial(ison_lawfirm, "age")
+net_by_concentration(ison_lawfirm, "age")
 }
 \references{
 \subsection{On heterophily}{
@@ -205,16 +210,19 @@ Moran, Patrick Alfred Pierce. 1950.
 \seealso{
 Other diversity:
 \code{\link{measure_assort_node}},
+\code{\link{measure_diverse_dispersion}},
 \code{\link{measure_diverse_net}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_diverse_tie}},
 \code{\link{motif_composition}},
 \code{\link{motif_homophily}}
 
 Other measures:
+\code{\link{measure_accuracy_net}},
+\code{\link{measure_accuracy_node}},
 \code{\link{measure_assort_node}},
 \code{\link{measure_breadth}},
 \code{\link{measure_broker_node}},
-\code{\link{measure_broker_tie}},
 \code{\link{measure_brokerage}},
 \code{\link{measure_central_between}},
 \code{\link{measure_central_close}},
@@ -231,13 +239,18 @@ Other measures:
 \code{\link{measure_diffusion_infection}},
 \code{\link{measure_diffusion_net}},
 \code{\link{measure_diffusion_node}},
+\code{\link{measure_diverse_dispersion}},
 \code{\link{measure_diverse_net}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_diverse_tie}},
+\code{\link{measure_domain}},
 \code{\link{measure_features}},
 \code{\link{measure_fit}},
 \code{\link{measure_fragmentation}},
 \code{\link{measure_hierarchy}},
-\code{\link{measure_periods}}
+\code{\link{measure_opinion}},
+\code{\link{measure_periods}},
+\code{\link[=tie_by_width]{tie_by_width()}}
 }
 \concept{diversity}
 \concept{measures}

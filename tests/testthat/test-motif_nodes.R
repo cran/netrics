@@ -7,6 +7,10 @@ for(fn in names(node_motifs)) {
         if(ob == "attribute")
           expect_s3_class(node_motifs[[fn]](data_objs[[ob]], "group"), "node_motif") else
             succeed("Only used for attribute objects")
+      } else if(grepl("accuracy", fn)){
+        # Accuracy compares the reports of a cognitive social structure,
+        # which none of these fixtures hold; see test-measure_fit.R.
+        expect_snet_abort(node_motifs[[fn]](data_objs[[ob]]), "reporters")
       } else if(grepl("exposure", fn)){
         if(ob == "diffusion")
           expect_s3_class(node_motifs[[fn]](data_objs[[ob]]), "node_motif") else
@@ -20,7 +24,7 @@ for(fn in names(node_motifs)) {
 
 # # Census function family tests
 set.seed(123)
-task_eg <- to_named(to_uniplex(ison_algebra, "tasks"))
+task_eg <- to_named(to_layer(ison_algebra, "tasks"))
 
 test_that("node_x_tie census works", {
   test <- node_x_tie(task_eg)
@@ -33,6 +37,22 @@ test_that("node_x_tie census works", {
 test_that("node_x_dyad census works", {
   test <- node_x_dyad(ison_adolescents)
   expect_equal(colnames(test)[1:2], c("Mutual", "Null"))
+  # a node is not in a dyad with itself
+  expect_true(all(rowSums(test) == net_nodes(ison_adolescents) - 1))
+})
+
+test_that("split node censuses sum to each node's plain census", {
+  grp <- rep(c("A", "B", "C"), length.out = 16)
+  task_eg <- to_layer(ison_algebra, "tasks")
+  for(fn in c("node_x_dyad", "node_x_triad", "node_x_tetrad")){
+    f <- get(fn)
+    plain <- f(task_eg)
+    split <- suppressMessages(f(ison_algebra, attribute = grp))
+    expect_equal(rowSums(split), rowSums(plain), info = fn)
+  }
+  signed <- node_x_triad(data_objs$labelled)
+  expect_true(all(rowSums(signed) == choose(11, 2)))
+  expect_true(all(grepl("_", colnames(signed))[colnames(signed) != "003"]))
 })
 
 test_that("node_x_triad census works", {
@@ -69,17 +89,19 @@ test_that("node_x_tetrad census works", {
 })
 
 test_that("net_mixed census works", {
-  marvel_friends <- to_unsigned(to_uniplex(fict_marvel, "relationship"), "positive")
-  test <- net_x_triad(marvel_friends, to_uniplex(fict_marvel, "affiliation"))
+  marvel_friends <- to_unsigned(to_layer(fict_marvel, "relationship"), "positive")
+  # passing the second network separately is deprecated, but still works
+  test <- suppressMessages(net_x_triad(marvel_friends,
+                                       to_layer(fict_marvel, "affiliation")))
   expect_equal(unname(test[1]), 1137)
   expect_equal(names(test[1]), "22")
   # Errors
   expect_error(net_x_triad(ison_southern_women,
-                            to_uniplex(fict_marvel, "affiliation")))
-  expect_error(net_x_triad(to_uniplex(fict_marvel, "affiliation"),
+                            to_layer(fict_marvel, "affiliation")))
+  expect_error(net_x_triad(to_layer(fict_marvel, "affiliation"),
                                     ison_southern_women))
   expect_error(net_x_triad(ison_karateka,
-                            to_uniplex(fict_marvel, "affiliation")))
+                            to_layer(fict_marvel, "affiliation")))
 })
 
 test <- node_x_path(ison_southern_women)

@@ -495,28 +495,40 @@ even in enormous, highly clustered social networks.
 
 There is also such a thing as a network's small-world coefficient.
 See the help page for more details,
-but with the default equation ('omega'),
-the coefficient typically ranges between 0 and 1,
-where 1 is as close to a small-world as possible.
+but the default equation ('omega') compares the network's clustering
+with that of a lattice, and its path length with that of a random network.
+The coefficient ranges between -1 and 1:
+values near -1 mean the network is more like a lattice,
+values near 1 mean it is more like a random network,
+and values near 0 are as close to a small-world as possible.
 **Try it now on a small-world generated network,
-but with a rewiring probability of 0.25.**
+with the same rewiring probability of 0.025.**
 
 ```{r smallwtest, exercise = TRUE, purl = FALSE}
 
 ```
 
 ```{r smallwtest-solution}
-net_by_smallworld(generate_smallworld(50, 0.25))
+net_by_smallworld(generate_smallworld(50, 0.025))
 ```
 
-Substantively, a coefficient near 1 says the network offers
+Try it again with a rewiring probability of 0.25,
+and on a lattice and a random network.
+With so many ties rewired, the network loses most of its clustering
+and moves towards the random end of the scale.
+
+Substantively, a coefficient near 0 says the network offers
 the best of both worlds:
 neighbourhoods cohesive enough to sustain trust and local norms,
 yet paths short enough for information or contagion
 to traverse the whole network in a few steps.
-A coefficient near 0 means the network behaves more like
-a pure lattice (clustered but slow) or
+A coefficient near -1 means the network behaves more like
+a pure lattice (clustered but slow),
+and a coefficient near 1 more like
 a pure random graph (fast but unclustered).
+Other equations put these on other scales.
+For example, `variant = "SWI"` ranges between 0 and 1,
+where 1 is as close to a small-world as possible.
 
 ### Scale-free graphs {#scale-free-graphs}
 
@@ -633,7 +645,7 @@ existing ones with a recency bias, the classic model of directed,
 ```{r moregen, exercise = TRUE, fig.width=9}
 set.seed(123)
 graphr(generate_fire(50)) + ggtitle("Forest fire")
-graphr(generate_islands(50, islands = 3, bridges = 2)) + ggtitle("Islands")
+graphr(generate_islands(50, groups = 3, width = 2)) + ggtitle("Islands")
 graphr(generate_citations(50)) + ggtitle("Citations")
 ```
 
@@ -652,7 +664,7 @@ one-directional flow with `net_by_reciprocity()`.
 <span class="callout-label">**Going further**:</span>
 These three are more advanced and we will not dwell on them in class.
 Each takes further arguments controlling its growth
-(e.g. `islands`, `bridges`, or the forest-fire burn probabilities);
+(e.g. `groups`, `width`, or the forest-fire burn probability `p`);
 see `?generate_fire`, `?generate_islands`, and `?generate_citations`,
 and their underlying `igraph` samplers, for the details.
 :::
@@ -730,11 +742,11 @@ Colour the nodes by Gender, Office, Practice, and School.**
 Any you might think correlate with core status?
 
 ```{r gnet, exercise=TRUE, fig.width=9}
-lawfirm <- ison_lawfirm |> to_uniplex("friends") |> to_undirected()
+lawfirm <- ison_lawfirm |> to_layer("friends") |> to_undirected()
 ```
 
 ```{r gnet-solution}
-lawfirm <- ison_lawfirm |> to_uniplex("friends") |> to_undirected()
+lawfirm <- ison_lawfirm |> to_layer("friends") |> to_undirected()
 graphr(lawfirm, node_color = "school", edge_color = "darkgray")
 graphr(lawfirm, node_color = "gender", edge_color = "darkgray")
 graphr(lawfirm, node_color = "office", edge_color = "darkgray")
@@ -785,18 +797,18 @@ question("What can we say about this correlation.",
                 message = learnr::random_encouragement()),
          answer("It is fairly strong",
                 message = learnr::random_encouragement()),
-         answer("It is positive",
-                message = learnr::random_encouragement()),
+         answer("It is positive, but weak", correct = TRUE,
+                message = learnr::random_praise()),
          answer("There is absolutely no correlation",
                 message = learnr::random_encouragement()),
-         answer("None of the above", correct = TRUE,
-                message = learnr::random_praise()),
+         answer("None of the above",
+                message = learnr::random_encouragement()),
          allow_retry = TRUE
 )
 ```
 
 So despite what the eye suggested,
-this friendship network is only weakly — indeed slightly _negatively_ —
+this friendship network is only weakly
 characterised by a single core-periphery structure.
 That is substantively interesting in itself:
 the firm's friendships seem to cluster into groups
@@ -936,7 +948,7 @@ Let us keep the direction this time.
 **Extract the friendship network again, without dropping direction.**
 
 ```{r dlaw, exercise=TRUE}
-lawdir <- ison_lawfirm |> to_uniplex("friends")
+lawdir <- ison_lawfirm |> to_layer("friends")
 is_directed(lawdir)
 ```
 
@@ -1205,7 +1217,8 @@ network is hierarchical. A directed tree scores perfectly on all four.
 <span class="page-toc">On this page:
 <span class="page-toc-link" onclick="document.getElementById('section-how-cohesive-is-the-network').scrollIntoView({behavior:'auto',block:'start'});">Cohesion</span> ·
 <span class="page-toc-link" onclick="document.getElementById('section-identifying-cutpoints').scrollIntoView({behavior:'auto',block:'start'});">Cutpoints</span> ·
-<span class="page-toc-link" onclick="document.getElementById('section-identifying-bridges').scrollIntoView({behavior:'auto',block:'start'});">Bridges</span></span>
+<span class="page-toc-link" onclick="document.getElementById('section-identifying-bridges').scrollIntoView({behavior:'auto',block:'start'});">Bridges</span> ·
+<span class="page-toc-link" onclick="document.getElementById('section-failure-or-attack').scrollIntoView({behavior:'auto',block:'start'});">Robustness</span></span>
 
 ### How cohesive is the network? {#how-cohesive-is-the-network}
 
@@ -1263,7 +1276,7 @@ question("The result of this function represents...",
          answer("the number of strong components in the network.",
                 message = learnr::random_encouragement()),
          answer("the minimum number of ties necessary to remove from the network to increase the number of components.",
-                message = "This is actually the definition of `node_adhesion()`."),
+                message = "This is actually the definition of `net_by_adhesion()`."),
          random_answer_order = TRUE,
          allow_retry = TRUE
 )
@@ -1371,13 +1384,62 @@ the map of bridges and cutpoints shows where redundancy is missing:
 adding even one tie between the far sides of a bridge
 would rob both the bridge and its cutpoints of their fragility.
 
+### Failure or attack? {#failure-or-attack}
+
+Cohesion and adhesion ask when a network _first_ breaks.
+But a network that loses one pendant node has hardly suffered.
+A different question is how quickly a network falls apart
+as it loses one node after another.
+`net_by_robustness()` removes the nodes one at a time,
+and averages the share of the original nodes still in the largest component.
+By default it removes nodes at random, as in a failure.
+Give it a node measure, such as `node_by_degree`,
+and it instead removes the highest-scoring node each time, as in an attack.
+
+Here are two networks of the same size and the same number of ties:
+a scale-free network and a regular tree.
+**Compare the robustness of each to a random failure and to a degree attack.**
+
+```{r robust, exercise = TRUE, purl=FALSE}
+sf <- generate_scalefree(50, 1)
+tr <- create_tree(50)
+```
+
+```{r robust-solution}
+sf <- generate_scalefree(50, 1)
+tr <- create_tree(50)
+net_by_robustness(sf)
+net_by_robustness(tr)
+net_by_robustness(sf, node_measure = node_by_degree)
+net_by_robustness(tr, node_measure = node_by_degree)
+```
+
+```{r robust-qa, echo=FALSE, purl = FALSE}
+question("Which network would an attacker, who can see the network, rather face?",
+         answer("The scale-free network", correct = TRUE,
+                message = paste("Right. Its hubs hold it together,",
+                                "so it tolerates the random loss of its many",
+                                "small nodes but falls apart once its hubs are targeted.")),
+         answer("The tree",
+                message = paste("Not quite. The tree has no hubs,",
+                                "so targeting its best-connected nodes",
+                                "does little more damage than random failure.")),
+         random_answer_order = TRUE,
+         allow_retry = TRUE
+)
+```
+
+The curve of the largest component's share after each removal is kept
+with the result, and can be retrieved with `attr(x, "curve")`.
+
 ::: {.callout}
 <span class="callout-label">**In brief**:</span> `net_by_connectedness()`, `net_by_cohesion()`, and
 `net_by_adhesion()` summarise how hard a network is to fragment — the share
 of dyads that can reach each other, and the minimum nodes or ties whose
 removal would fragment it. `node_is_cutpoint()` and `tie_is_bridge()` point
 to _where_ it would break, and `tie_by_cohesion()` shows which ties are
-buttressed by triangles.
+buttressed by triangles. `net_by_robustness()` shows how quickly it falls
+apart under failure or attack.
 :::
 
 ## Free play
@@ -1438,7 +1500,7 @@ Along the way, you have learned to use these functions:
 | `net_by_cohesion()`, `net_by_adhesion()` | minimum nodes / ties to remove to fragment the network |
 | `node_is_cutpoint()`, `tie_is_bridge()` | flags the nodes / ties whose removal would fragment the network |
 | `tie_by_cohesion()` | how deeply each tie is embedded in triangles |
-| `to_uniplex()`, `to_undirected()`, `to_redirected()`, `to_giant()` | extract one tie type, drop direction, reverse direction, keep the largest component |
+| `to_layer()`, `to_undirected()`, `to_redirected()`, `to_giant()` | extract one tie type, drop direction, reverse direction, keep the largest component |
 | `mutate_nodes()`, `mutate_ties()`, `graphr()` | map marks and measures onto the graph |
 | `chisq.test()` | (base R) association between core status and a categorical attribute |
 

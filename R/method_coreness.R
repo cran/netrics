@@ -64,12 +64,12 @@
 #' _Proceedings of the Royal Society A_ 476(2241): 20190783.
 #' \doi{10.1098/rspa.2019.0783}
 #' @family methods
-#' @section Multilevel networks:
+#' @details
+#'   For multilevel networks, these methods read the network as a one-mode one,
+#'   which is the shape its matrix already has.
 #'   A multilevel network reports itself as two-mode, but holds ties within a
 #'   mode as well as between them, so `manynet::as_matrix()` returns one square
 #'   matrix over every node rather than a rectangular incidence matrix.
-#'   These methods therefore read a multilevel network as a one-mode one, which
-#'   is the shape its matrix already has.
 NULL
 
 # A multilevel network reports itself as two-mode, but holds ties within a mode
@@ -404,8 +404,9 @@ coreness_hub <- function(.data, direction = c("all","out","in")){
   auth <- .core_scale(as.numeric(node_by_authority(.data)))
   # Both cores are cut against the same directed block structure. What
   # separates them is the ordering: the out-core is swept in hub order, the
-  # in-core in authority order.
-  mat <- manynet::as_matrix(.data)
+  # in-core in authority order. A two-mode network is read as one square
+  # matrix over all its nodes, so that every node has a degree.
+  mat <- manynet::as_matrix(manynet::to_onemode(.data))
   degi <- rowSums(mat) + colSums(mat)
   directed <- if(manynet::is_directed(.data)) 2 else 1
   out_core <- .lip_cut(degi, order(hub, decreasing = TRUE), directed)

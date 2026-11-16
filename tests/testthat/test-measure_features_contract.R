@@ -11,7 +11,7 @@ test_that("structural fit measures meet the measure contract", {
 })
 
 test_that("structural balance meets the measure contract", {
-  signed <- manynet::to_uniplex(manynet::fict_marvel, "relationship")
+  signed <- manynet::to_layer(manynet::fict_marvel, "relationship")
   check_measure_contract(measure_rosters$features_balance, signed, level = "net")
   expect_declared(measure_rosters$features_balance, signed)
 })
@@ -43,4 +43,13 @@ test_that("measures on several scales report which one they are on", {
   expect_equal(attr(net_by_modularity(g, memb), "range"), c(-0.5, 1))
   expect_equal(attr(net_by_modularity(g, memb, resolution = 2), "range"),
                c(-Inf, 1))
+})
+
+test_that("reporter accuracy meets the measure contract", {
+  check_measure_contract(measure_rosters$accuracy_node, sparse_css,
+                         level = "node")
+  expect_declared(measure_rosters$accuracy_node, sparse_css)
+  check_measure_contract(measure_rosters$accuracy_net, sparse_css,
+                         level = "net")
+  expect_declared(measure_rosters$accuracy_net, sparse_css)
 })

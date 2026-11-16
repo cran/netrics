@@ -2,7 +2,6 @@
 
 #' Measures of node degree-like centrality
 #' @name measure_central_degree
-#' @template section_cognitive
 #' @description
 #'   These functions calculate common degree-related centrality measures for one- and two-mode networks:
 #'   
@@ -29,13 +28,6 @@
 #'   `node_by_multidegree()` is the one measure here that is not reached by
 #'   dispatch: a multiplex network does not itself say _which_ two types of
 #'   tie to contrast, so `tie1` and `tie2` must be named.
-#' @section Multiplex networks:
-#'   `node_by_degree()` counts every tie a node holds, whatever its layer,
-#'   so a node tied twice to the same alter on two layers scores 2.
-#'   To score one layer at a time, take it first with
-#'   [manynet::to_uniplex()], or use `node_by_multidegree()` to contrast two.
-#'   Note that `to_uniplex()` drops the nodes that hold none of the retained
-#'   ties, so scores from two layers are of different lengths.
 #' @template param_data
 #' @template param_norm
 #' @template param_dir
@@ -101,13 +93,21 @@ NULL
 #'   Directed networks discriminate between
 #'   outdegree (degree of outgoing ties) and
 #'   indegree (degree of incoming ties).
+#'
+#'   For multiplex networks, `node_by_degree()` counts every tie a node holds,
+#'   whatever its layer,
+#'   so a node tied twice to the same alter on two layers scores 2.
+#'   To score one layer at a time, take it first with
+#'   [manynet::to_layer()], or use `node_by_multidegree()` to contrast two.
+#'   Note that `to_layer()` drops the nodes that hold none of the retained
+#'   ties, so scores from two layers are of different lengths.
 #' @section Strength centrality:
 #'   Given a weighted network, `node_by_degree()` sums tie weights rather than
 #'   counting ties, which is also known as _strength centrality_ or _weighted
 #'   degree centrality_. The `alpha` argument tunes between the two, following
 #'   Opsahl et al. (2010), and the measure reports itself as
 #'   "strength centrality" whenever `alpha` is not zero.
-#' @importFrom manynet as_igraph is_weighted tie_weights is_twomode is_complex
+#' @importFrom manynet as_igraph is_weighted tie_weights is_twomode is_looped
 #' @export
 node_by_degree <- function (.data, normalized = TRUE, alpha = 0,
                          direction = c("all","out","in")){
@@ -123,7 +123,7 @@ node_by_degree <- function (.data, normalized = TRUE, alpha = 0,
     degrees <- igraph::degree(graph = graph,
                               v = igraph::V(graph),
                               mode = direction,
-                              loops = manynet::is_complex(.data))
+                              loops = manynet::is_looped(.data))
     other_set_size <- ifelse(igraph::V(graph)$type,
                              sum(!igraph::V(graph)$type),
                              sum(igraph::V(graph)$type))
@@ -135,7 +135,7 @@ node_by_degree <- function (.data, normalized = TRUE, alpha = 0,
     if (all(is.na(weights))) {
       out <- igraph::degree(graph = graph, v = igraph::V(graph),
                      mode = direction,
-                     loops = manynet::is_complex(.data),
+                     loops = manynet::is_looped(.data),
                      normalized = normalized)
       meas <- "degree centrality"
       rng <- `if`(normalized, c(0, 1), c(0, Inf))
@@ -144,10 +144,10 @@ node_by_degree <- function (.data, normalized = TRUE, alpha = 0,
     else {
       ki <- igraph::degree(graph = graph, v = igraph::V(graph),
                      mode = direction,
-                     loops = manynet::is_complex(.data))
+                     loops = manynet::is_looped(.data))
       si <- igraph::strength(graph = graph, vids = igraph::V(graph),
                        mode = direction,
-                       loops = manynet::is_complex(.data), weights = weights)
+                       loops = manynet::is_looped(.data), weights = weights)
       out <- ki * (si/ki)^alpha
       out[is.nan(out)] <- 0
       # Strength has no theoretical maximum, so `normalized` here divides by
@@ -168,6 +168,22 @@ node_by_deg <- function (.data, alpha = 0, direction = c("all","out","in")){
   .data <- manynet::expect_nodes(.data)
   .data <- .to_aggregated_css(.data)
   node_by_degree(.data, normalized = FALSE, alpha = alpha, direction = direction)
+}
+
+#' @rdname measure_central_degree
+#' @export
+node_by_outdeg <- function (.data, alpha = 0){
+  .data <- manynet::expect_nodes(.data)
+  .data <- .to_aggregated_css(.data)
+  node_by_degree(.data, normalized = FALSE, alpha = alpha, direction = "out")
+}
+
+#' @rdname measure_central_degree
+#' @export
+node_by_indeg <- function (.data, alpha = 0){
+  .data <- manynet::expect_nodes(.data)
+  .data <- .to_aggregated_css(.data)
+  node_by_degree(.data, normalized = FALSE, alpha = alpha, direction = "in")
 }
 
 #' @rdname measure_central_degree
@@ -201,13 +217,13 @@ node_by_multidegree <- function (.data, tie1, tie2){
 }
 
 # Degree in one layer of a multiplex network, kept at the length of the
-# whole nodeset. `to_uniplex()` drops nodes that hold none of the retained
+# whole nodeset. `to_layer()` drops nodes that hold none of the retained
 # ties (e.g. a whole mode of a twomode layer), so the two layers' degrees
 # would otherwise be of different lengths and get recycled.
 # `node_x_ties()` calls this too, which is why the normalisation and the
 # direction are arguments. Their defaults are `node_by_degree()`'s own.
 uniplex_degree <- function(.data, tie, normalized = TRUE, direction = "all") {
-  layer <- manynet::to_uniplex(.data, tie)
+  layer <- manynet::to_layer(.data, tie)
   deg <- as.numeric(node_by_degree(layer, normalized = normalized,
                                    direction = direction))
   if (length(deg) == manynet::net_nodes(.data)) return(deg)
@@ -244,7 +260,6 @@ node_by_leverage <- function(.data){
 
 #' Measures of tie degree-like centrality
 #' @name measure_central_tie_degree
-#' @template section_cognitive
 #' @description
 #'   `tie_by_degree()` measures the degree centrality of ties in a network
 #'   
@@ -281,7 +296,6 @@ tie_by_degree <- function(.data, normalized = TRUE){
 
 #' Measures of network degree-like centralisation
 #' @name measure_centralisation_degree
-#' @template section_cognitive
 #' @description
 #'   - `net_by_degree()` measures a network's degree centralization as a single
 #'   score; there are several related shortcut functions:

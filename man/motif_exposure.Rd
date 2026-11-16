@@ -5,12 +5,16 @@
 \alias{node_x_exposure}
 \title{Motifs of node exposure}
 \usage{
-node_x_exposure(.data)
+node_x_exposure(.data, attribute = "diffusion")
 }
 \arguments{
 \item{.data}{A network object of class \code{stocnet}, \code{igraph}, \code{tbl_graph}, \code{network}, or similar.
 Internally any of these will be coerced to an efficient implementation.
 For more information on possible coercions, see e.g. \code{\link[manynet:as_stocnet]{manynet::as_stocnet()}}.}
+
+\item{attribute}{Name of the nodal attribute that holds the diffusion,
+as its start state on the nodes and as its changes.
+By default "diffusion", as in \code{play_diffusion()}.}
 }
 \value{
 A \code{node_motif} matrix with one row for each node in the network and
@@ -37,6 +41,7 @@ Other diffusion:
 \code{\link{motif_hazard}}
 
 Other motifs:
+\code{\link{motif_accuracy_node}},
 \code{\link{motif_brokerage_net}},
 \code{\link{motif_brokerage_node}},
 \code{\link{motif_clique}},
@@ -55,6 +60,7 @@ Other nodal:
 \code{\link{mark_diff}},
 \code{\link{mark_nodes}},
 \code{\link{mark_select_node}},
+\code{\link{measure_accuracy_node}},
 \code{\link{measure_assort_node}},
 \code{\link{measure_broker_node}},
 \code{\link{measure_brokerage}},
@@ -66,6 +72,8 @@ Other nodal:
 \code{\link{measure_core}},
 \code{\link{measure_diffusion_node}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_domain}},
+\code{\link{measure_opinion}},
 \code{\link{member_brokerage}},
 \code{\link{member_cliques}},
 \code{\link{member_community}},
@@ -77,6 +85,7 @@ Other nodal:
 \code{\link{member_core}},
 \code{\link{member_diffusion}},
 \code{\link{member_equivalence}},
+\code{\link{motif_accuracy_node}},
 \code{\link{motif_brokerage_node}},
 \code{\link{motif_clique}},
 \code{\link{motif_composition}},

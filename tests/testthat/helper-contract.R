@@ -23,6 +23,8 @@ measure_rosters <- list(
     node_by_deg           = list(),
     node_by_indegree      = list(),
     node_by_outdegree     = list(),
+    node_by_indeg         = list(),
+    node_by_outdeg        = list(),
     node_by_leverage      = list(),
     node_by_closeness     = list(),
     node_by_harmonic      = list(),
@@ -45,7 +47,8 @@ measure_rosters <- list(
     node_by_hub           = list(),
     node_by_authority     = list(),
     node_by_subgraph      = list(),
-    node_by_distance      = list(from = 1)
+    node_by_distance      = list(from = 1),
+    node_by_contagion     = list()
   ),
   # PN centrality is defined on signed data, so it runs against its own fixture.
   centrality_signed = list(
@@ -54,6 +57,11 @@ measure_rosters <- list(
   # Multidegree needs multiplex data, so it runs against its own fixture.
   centrality_multiplex = list(
     node_by_multidegree = list(tie1 = "relationship", tie2 = "affiliation")
+  ),
+  # Main path analysis needs a directed acyclic network, so it runs against
+  # the citation network of Hummon and Doreian's Figure 3.
+  centrality_tie_dag = list(
+    tie_by_mainpath = list()
   ),
   centrality_tie = list(
     tie_by_degree      = list(),
@@ -105,10 +113,12 @@ measure_rosters <- list(
     net_by_adhesion     = list()
   ),
   # Strength and toughness enumerate every subset of ties or nodes, so they get
-  # a small fixture of their own.
+  # a small fixture of their own. Robustness shares their documentation, and
+  # repeats its removals `times` over, so it takes the small fixture too.
   fragmentation_net = list(
-    net_by_strength  = list(),
-    net_by_toughness = list()
+    net_by_strength   = list(),
+    net_by_toughness  = list(),
+    net_by_robustness = list()
   ),
 
   diffusion_net = list(
@@ -116,6 +126,7 @@ measure_rosters <- list(
     net_by_recovery           = list(),
     net_by_reproduction       = list(),
     net_by_immunity           = list(),
+    net_by_tipping            = list(),
     net_by_infection_complete = list(),
     net_by_infection_total    = list(),
     net_by_infection_peak     = list()
@@ -133,6 +144,7 @@ measure_rosters <- list(
     net_by_richclub    = list(),
     net_by_scalefree   = list(),
     net_by_bipartivity = list(),
+    net_by_meshedness  = list(),
     net_by_smallworld  = list(times = 20)
   ),
   features_balance = list(
@@ -160,8 +172,39 @@ measure_rosters <- list(
     node_by_heterophily = list(attribute = "Gender"),
     node_by_homophily   = list(attribute = "Gender")
   ),
+  heterogeneity_tie = list(
+    tie_by_diversity = list(attribute = "Gender")
+  ),
+  heterogeneity_domain = list(
+    node_by_domain = list(attribute = "Appearances")
+  ),
   heterogeneity_spatial = list(
     net_by_spatial = list(attribute = "age")
+  ),
+  heterogeneity_moran_net = list(
+    net_by_homophily = list(attribute = "age", assortativity = "moran")
+  ),
+  heterogeneity_moran_node = list(
+    node_by_homophily = list(attribute = "age", assortativity = "moran")
+  ),
+  heterogeneity_concentration_net = list(
+    net_by_concentration = list(attribute = "age")
+  ),
+  heterogeneity_concentration_node = list(
+    node_by_concentration = list(attribute = "age")
+  ),
+  heterogeneity_dispersion = list(
+    net_by_polarisation = list(attribute = "age"),
+    net_by_disagreement = list(attribute = "age")
+  ),
+
+  opinion_node = list(
+    node_by_influence = list(),
+    node_by_opinion   = list()
+  ),
+  opinion_net = list(
+    net_by_influence   = list(),
+    net_by_convergence = list()
   ),
 
   holes_node = list(
@@ -174,7 +217,8 @@ measure_rosters <- list(
     node_by_neighbours_degree = list()
   ),
   holes_tie = list(
-    tie_by_cohesion = list()
+    tie_by_cohesion = list(),
+    tie_by_width    = list()
   ),
 
   hierarchy_net = list(
@@ -195,6 +239,14 @@ measure_rosters <- list(
   ),
   change_net = list(
     net_by_waves = list()
+  ),
+  # Accuracy compares the reports of a cognitive social structure, so it runs
+  # against a CSS fixture, and does not apply to the aggregated network.
+  accuracy_node = list(
+    node_by_accuracy = list()
+  ),
+  accuracy_net = list(
+    net_by_accuracy = list()
   )
 )
 
@@ -369,8 +421,11 @@ check_measure_contract <- function(roster, .data,
 # reports, so that it still holds one value per tie of the network given.
 #
 # `ison_hightech` has none of the attributes the rosters name, so those
-# measures take the arguments below instead.
+# measures take the arguments below instead. Power centrality's default
+# exponent of 1 has no solution where 1 is an eigenvalue of the network, as
+# it is for the pairs in the sparse CSS, so it takes a smaller exponent.
 cognitive_arguments <- list(
+  node_by_power        = list(exponent = 0.25),
   net_by_richness      = list(attribute = "dept"),
   net_by_diversity     = list(attribute = "dept"),
   net_by_heterophily   = list(attribute = "dept"),
@@ -379,39 +434,47 @@ cognitive_arguments <- list(
   node_by_diversity    = list(attribute = "dept"),
   node_by_heterophily  = list(attribute = "dept"),
   node_by_homophily    = list(attribute = "dept"),
+  tie_by_diversity     = list(attribute = "dept"),
+  node_by_domain       = list(attribute = "age"),
   net_by_spatial       = list(attribute = "age"),
+  net_by_polarisation  = list(attribute = "age"),
+  net_by_concentration = list(attribute = "age"),
+  node_by_concentration = list(attribute = "age"),
+  net_by_disagreement  = list(attribute = "age"),
   node_by_brokering_activity    = list(membership = "dept"),
   node_by_brokering_exclusivity = list(membership = "dept")
 )
 
 # `ison_hightech` aggregates to a connected network, on which a measure of
 # components, reach, or bridges gives the same answer whether or not it
-# aggregates. This small CSS is sparse: three ties that both ends report, and
-# two reports of ties between them that only a third node makes. A function
-# that reads the raw reports finds one component here, and not three.
+# aggregates. This small CSS is sparse: two pairs and a triangle whose ties
+# both ends report, and two reports of ties between them that only a third
+# node makes. A function that reads the raw reports finds one component here,
+# and not three. The components differ, so that the leading eigenvector of
+# the aggregated network is unique and an eigenvector measure such as
+# `node_by_hub()` has a single answer on every platform.
 sparse_css <- local({
-  el <- data.frame(from = c(1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 2, 1),
-                   to   = c(2, 2, 1, 1, 4, 4, 3, 3, 6, 6, 5, 5, 3, 5),
-                   by   = as.integer(c(1, 2, 1, 2, 3, 4, 3, 4, 5, 6, 5, 6,
+  el <- data.frame(from = c(1, 1, 2, 2, 3, 3, 4, 4,
+                            5, 5, 6, 6, 5, 5, 7, 7, 6, 6, 7, 7,
+                            2, 1),
+                   to   = c(2, 2, 1, 1, 4, 4, 3, 3,
+                            6, 6, 5, 5, 7, 7, 5, 5, 7, 7, 6, 6,
+                            3, 5),
+                   by   = as.integer(c(1, 2, 1, 2, 3, 4, 3, 4,
+                                       5, 6, 5, 6, 5, 7, 5, 7, 6, 7, 6, 7,
                                        1, 3)))
   out <- manynet::as_stocnet(el)
-  out <- manynet::add_node_attribute(out, "dept", c(1, 1, 2, 2, 1, 2))
-  manynet::add_node_attribute(out, "age", c(30, 40, 35, 50, 45, 25))
+  out <- manynet::add_node_attribute(out, "dept", c(1, 1, 2, 2, 1, 2, 1))
+  manynet::add_node_attribute(out, "age", c(30, 40, 35, 50, 45, 25, 55))
 })
-cognitive_fixtures <- list(hightech = manynet::ison_hightech,
+# Ten of the twenty-one managers keep the three layers, the departments, and
+# a report from every reporter, and make the sweeps several times faster.
+hightech_css <- manynet::delete_nodes(manynet::ison_hightech, 11:21)
+cognitive_fixtures <- list(hightech = hightech_css,
                            sparse = sparse_css)
 
-# `ison_hightech` names the perceiver of each report only since manynet 2.4.0.
-# With an earlier manynet it is an ordinary multiplex network, which says
-# nothing about how a measure reads a CSS, so the sweep is skipped there.
-skip_if_not_cognitive <- function(css = manynet::ison_hightech) {
-  testthat::skip_if_not(manynet::is_cognitive(css),
-                        "`ison_hightech` is a CSS only since manynet 2.4.0")
-}
-
 check_cognitive_contract <- function(roster,
-                                     css = manynet::ison_hightech) {
-  skip_if_not_cognitive(css)
+                                     css = hightech_css) {
   agg <- suppressMessages(.to_aggregated_css(css))
   report <- match(.tie_keys(css), .tie_keys(agg))
   quietly <- function(fn, args, .data) {

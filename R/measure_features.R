@@ -2,7 +2,6 @@
 
 #' Measures of network topological features
 #' @name measure_features
-#' @template section_cognitive
 #' @description
 #'   These functions measure topological features that are intrinsic to a
 #'   network, in the sense that they require nothing of the user beyond the
@@ -21,6 +20,9 @@
 #'   `1` if all triangles are balanced.
 #'   - `net_by_bipartivity()` measures how close a network is to being
 #'   bipartite, that is, to dividing into two sets with ties only between them.
+#'   - `net_by_meshedness()` measures how many cycles a network has,
+#'   relative to the most that a planar network of its size could have.
+#'   A tree scores 0, and a network of triangles drawn on a plane scores 1.
 #'
 #' @template param_data
 #' @family features
@@ -99,15 +101,14 @@ net_by_richclub <- function(.data){
 #'     but this measure is highly sensitive to network size.
 #'  -  "omega" (the default) is an update from Telesford et al. (2011),
 #'     \deqn{\frac{L_r}{L} - \frac{C}{C_l}},
-#'     where \eqn{C_l} is the clustering coefficient for a lattice graph
-#'     with the same dimensions.
+#'     where \eqn{C_l} is the clustering coefficient for a ring lattice
+#'     with the same number of nodes and about the same number of ties.
 #'     \eqn{\omega} ranges between -1 and 1, where values close to 0 are
 #'     as close to a small-world as possible; negative values indicate a
 #'     lattice-like network, and positive values a more random one.
 #'  -  "SWI" is an alternative proposed by Neal (2017),
 #'     \deqn{\frac{L - L_l}{L_r - L_l} \times \frac{C - C_r}{C_l - C_r}},
-#'     where \eqn{L_l} is the average path length for a lattice graph
-#'     with the same dimensions.
+#'     where \eqn{L_l} is the average path length for the same ring lattice.
 #'     \eqn{SWI} ranges between 0 and 1, where 1 is as close to a small-world
 #'     as possible, though there may not be a network for which \eqn{SWI = 1}.
 #' @seealso [net_by_transitivity()] and [net_by_equivalency()]
@@ -129,8 +130,8 @@ net_by_richclub <- function(.data){
 #'   _Network Science_. 5 (1): 30–44.
 #'   \doi{10.1017/nws.2017.5}
 #' @examples
-#' net_by_smallworld(ison_brandes)
-#' net_by_smallworld(ison_southern_women)
+#' net_by_smallworld(ison_centrality, times = 10)
+#' net_by_smallworld(ison_southern_women, times = 10)
 #' @export
 net_by_smallworld <- function(.data, 
                                variant = c("omega", "sigma", "SWI"),
@@ -146,7 +147,8 @@ net_by_smallworld <- function(.data,
                       function(x) net_by_equivalency(manynet::generate_random(.data)),
                       FUN.VALUE = numeric(1)))
     if(variant %in% c("omega", "SWI")){
-      cl <- net_by_equivalency(manynet::create_ring(.data))
+      lattice <- manynet::create_ring(.data)
+      cl <- net_by_equivalency(lattice)
     }
   } else {
     co <- net_by_transitivity(.data)
@@ -154,7 +156,14 @@ net_by_smallworld <- function(.data,
                             function(x) net_by_transitivity(manynet::generate_random(.data)),
                             FUN.VALUE = numeric(1)))
     if(variant %in% c("omega", "SWI")){
-      cl <- net_by_transitivity(manynet::create_lattice(.data))
+      # The lattice is a ring with about as many ties as the network, so that
+      # it is compared with a lattice of the same density (Telesford et al.
+      # 2011). A ring of width w ties each node to w nodes on each side, so it
+      # has n * w ties, and it needs a width of at least 2 to have triangles.
+      n <- manynet::net_nodes(.data)
+      width <- min(max(round(manynet::net_ties(.data)/n), 2), floor((n - 1)/2))
+      lattice <- manynet::create_ring(.data, width = width)
+      cl <- net_by_transitivity(lattice)
     }
   }
   
@@ -163,7 +172,7 @@ net_by_smallworld <- function(.data,
                          function(x) net_by_length(manynet::generate_random(.data)),
                          FUN.VALUE = numeric(1)))
   if(variant == "SWI"){
-    ll <- net_by_length(manynet::create_ring(.data))
+    ll <- net_by_length(lattice)
   }
   
   out <- switch(variant,
@@ -263,6 +272,50 @@ net_by_bipartivity <- function(.data) {
 }
 
 #' @rdname measure_features
+#' @section Meshedness:
+#'   Meshedness, or Kansky's alpha index, counts a network's independent
+#'   cycles (its circuit rank) relative to the most that a planar network,
+#'   one that can be drawn on a plane without crossing ties,
+#'   of the same number of nodes can have:
+#'   \deqn{\alpha = \frac{m - n + c}{2n - 5}}
+#'   where \eqn{m} is the number of ties, \eqn{n} the number of nodes,
+#'   and \eqn{c} the number of components.
+#'   It is read on the undirected, simple network,
+#'   so that direction, loops, and parallel ties are not counted.
+#'   It distinguishes, for example, tree-like road networks from grids.
+#'   For a planar network it ranges from 0 to 1,
+#'   but a network that is not planar can score above 1,
+#'   so the upper end of its range is declared open.
+#'   It is not defined for fewer than three nodes, where it returns `NA`.
+#' @references
+#' ## On meshedness
+#' Kansky, Karel J. 1963.
+#' _Structure of Transportation Networks_.
+#' Chicago: University of Chicago, Department of Geography.
+#'
+#' Buhl, Jerome, Jacques Gautrais, Ricard V. Solé, Pascale Kuntz,
+#' Sergi Valverde, Jean-Louis Deneubourg, and Guy Theraulaz. 2004.
+#' "Efficiency and robustness in ant networks of galleries".
+#' _The European Physical Journal B_ 42(1): 123-129.
+#' \doi{10.1140/epjb/e2004-00364-9}
+#' @examples
+#' net_by_meshedness(create_tree(12))
+#' net_by_meshedness(create_lattice(12))
+#' @export
+net_by_meshedness <- function(.data) {
+  .data <- manynet::expect_nodes(.data)
+  .data <- .to_aggregated_css(.data)
+  g <- igraph::simplify(igraph::as_undirected(manynet::as_igraph(.data),
+                                              mode = "collapse"))
+  n <- igraph::vcount(g)
+  out <- if(n < 3) NA_real_ else
+    (igraph::ecount(g) - n + igraph::components(g)$no) / (2*n - 5)
+  make_network_measure(out, .data, call = deparse(sys.call()),
+                       measure = "meshedness", range = c(0, Inf),
+                       normalization = "none")
+}
+
+#' @rdname measure_features
 #' @source `{signnet}` by David Schoch
 #' @references
 #' ## On balance theory
@@ -276,7 +329,7 @@ net_by_bipartivity <- function(.data) {
 #' _Psychological Review_, 63(5): 277-293.
 #' \doi{10.1037/h0046049}
 #' @examples
-#' net_by_balance(to_uniplex(fict_marvel, "relationship"))
+#' net_by_balance(to_layer(fict_marvel, "relationship"))
 #' @export
 net_by_balance <- function(.data) {
   
@@ -357,7 +410,6 @@ net_by_balance <- function(.data) {
 
 #' Measures of how well a structure fits a network
 #' @name measure_fit
-#' @template section_cognitive
 #' @description
 #'   These functions measure how well some proposed structure describes a
 #'   network. Unlike the intrinsic properties in [measure_features], each takes
@@ -400,21 +452,24 @@ net_by_balance <- function(.data) {
 #' @template param_memb
 #' @family features
 #' @template net_measure
-#' @section Signed networks:
-#'   `net_by_modularity()` counts a tie however it is signed, as a census does,
-#'   so where the network is signed each tie is read by its magnitude.
-#' @section Multilevel networks:
-#'   `net_by_core()` and `net_by_factions()` fit the network to an ideal built
+#' @references
+#' ## On signed modularity
+#' Gómez, Sergio, Pablo Jensen, and Alex Arenas. 2009.
+#' "Analysis of community structure in networks of correlated data".
+#' _Physical Review E_ 80: 016114.
+#' \doi{10.1103/PhysRevE.80.016114}
+#' @details
+#'   For multilevel networks, `net_by_core()` and `net_by_factions()` stop
+#'   rather than compare unlike shapes.
+#'   They fit the network to an ideal built
 #'   by a `manynet::create_*()` function, and those build one layer at a time.
-#'   A multilevel network holds two, so there is no single ideal to fit it to
-#'   and both stop rather than compare unlike shapes.
+#'   A multilevel network holds two, so there is no single ideal to fit it to.
 #'   Take one layer first, e.g. with [manynet::to_mode1()] or
-#'   [manynet::to_uniplex()].
+#'   [manynet::to_layer()].
 NULL
 
 #' @rdname measure_fit
 #' @param mark A logical vector indicating which nodes belong to the core.
-#' @template param_variant
 #' @param method Deprecated. The former spelling of `variant`.
 #'   Still accepted, but warns; please use `variant` instead.
 #' @section Core-periphery fit variants:
@@ -467,7 +522,7 @@ net_by_core <- function(.data,
     manynet::snet_abort("{.fn net_by_core} fits the network to a",
                         "core-periphery ideal of one layer, and this network",
                         "holds two. Take one layer first, e.g. with",
-                        "{.fn to_mode1} or {.fn to_uniplex}.")
+                        "{.fn to_mode1} or {.fn to_layer}.")
   if(is.null(mark)) mark <- node_is_core(.data, coreness = coreness,
                                          direction = direction)
   
@@ -478,7 +533,10 @@ net_by_core <- function(.data,
   # are therefore symmetrised, and the user is told that direction is not read
   # here even where the assignment in `mark` read it.
   obs <- manynet::as_matrix(.data)
-  ideal <- manynet::as_matrix(manynet::create_core(.data, mark = mark))
+  # The mark is passed as numbers, with 1 for the core, since 'manynet' 2.4.0
+  # and earlier read a logical mark with TRUE as the periphery.
+  ideal <- manynet::as_matrix(manynet::create_core(.data,
+                                                   mark = ifelse(mark, 1, 2)))
   if(manynet::is_directed(.data)){
     manynet::snet_info("{.fn net_by_core} compares the network against a",
                        "symmetric ideal, so tie direction is not used in the",
@@ -524,32 +582,185 @@ net_by_core <- function(.data,
                        normalization = "none", variant = variant)
 }
 
-#' @rdname measure_fit 
-#' @examples 
+#' @rdname measure_fit
+#' @section Factions:
+#'   `net_by_factions()` measures how far a network is divided into factions.
+#'   By default, with `variant = "correlation"`, it correlates the network
+#'   with an ideal of factions: every tie inside each group, and none between
+#'   the groups.
+#'
+#'   For signed networks, `net_by_factions()` measures polarisation.
+#'   The ideal is then a positive tie between every two nodes in the same
+#'   group, and a negative tie between every two nodes in different groups,
+#'   as in a network of two or more opposed camps.
+#'   The correlation is between the sign of each tie and this ideal.
+#'   A pair of nodes without a tie neither agrees nor opposes,
+#'   so only the pairs with a tie are compared.
+#'   1 means agreement inside every group and opposition between every two
+#'   groups.
+#'   Where no membership is given, a signed network is split into two camps
+#'   by the signs of the leading eigenvector of its signed ties, read as
+#'   undirected.
+#'
+#'   For signed two-mode networks, such as a network of actors and the
+#'   concepts they support or oppose, `net_by_factions()` measures the
+#'   first mode.
+#'   It projects the network with `manynet::to_mode(.data, 1, "signed")`,
+#'   so two actors are tied positively where they agree on more of the
+#'   concepts they share than they disagree on, and negatively otherwise.
+#'   A membership may give the groups of the first mode only, or of all the
+#'   nodes.
+#'   Project the network yourself with [manynet::to_mode()] to use another
+#'   rule.
+#'
+#'   With `variant = "esteban"`, `net_by_factions()` instead returns the
+#'   polarisation index of Esteban and Ray (1994):
+#'   \deqn{P = \sum_g \sum_h \pi_g^{1 + \alpha} \pi_h d_{gh}}
+#'   where \eqn{\pi_g} is the share of the nodes in group \eqn{g},
+#'   \eqn{d_{gh}} is the distance between groups \eqn{g} and \eqn{h},
+#'   and \eqn{\alpha} is the `sensitivity`.
+#'   The distance is \eqn{(1 - s_{gh})/2}, where \eqn{s_{gh}} is the mean
+#'   sign of the ties between the two groups, so it is 0 where all those ties
+#'   are positive and 1 where all are negative.
+#'   Pairs of groups with no ties between them are left out.
+#'   Unlike the correlation, this index gives weight to the size of the groups:
+#'   two large opposed groups are more polarised than one large group and
+#'   a small group that opposes it.
+#'   The index is divided by its maximum, \eqn{(1/2)^{1+\alpha}},
+#'   that of two groups of equal size at the largest distance,
+#'   so it runs from 0 to 1.
+#'   For unsigned networks, every tie is positive, so the index is 0.
+#' @param variant For `net_by_core()`, see the section on core-periphery fit
+#'   variants. For `net_by_factions()`, "correlation" (the default)
+#'   correlates the network with an ideal of factions, and "esteban" returns
+#'   Esteban and Ray's index of polarisation. See the section on factions.
+#' @param sensitivity For `net_by_factions(variant = "esteban")`,
+#'   Esteban and Ray's \eqn{\alpha}: how much the index rewards large groups.
+#'   A number between 1, the default, and 1.6.
+#' @references
+#' ## On polarisation
+#' Esteban, Joan-Maria, and Debraj Ray. 1994.
+#' "On the measurement of polarization".
+#' _Econometrica_ 62(4): 819-851.
+#' \doi{10.2307/2951734}
+#' @examples
 #'   net_by_factions(ison_southern_women)
+#'   net_by_factions(irps_nuclear)
+#'   net_by_factions(irps_nuclear, variant = "esteban")
 #' @export
 net_by_factions <- function(.data,
-                            membership = NULL){
+                            membership = NULL,
+                            variant = c("correlation", "esteban"),
+                            sensitivity = 1){
   .data <- manynet::expect_nodes(.data)
   .data <- .to_aggregated_css(.data)
+  variant <- match.arg(variant)
   # `manynet::create_components()` builds one layer; see `net_by_core()`
   if(manynet::is_multilevel(.data))
     manynet::snet_abort("{.fn net_by_factions} fits the network to a",
                         "factional ideal of one layer, and this network holds",
                         "two. Take one layer first, e.g. with",
-                        "{.fn to_mode1} or {.fn to_uniplex}.")
+                        "{.fn to_mode1} or {.fn to_layer}.")
   membership <- .resolve_membership(.data, membership)
-  if(is.null(membership)){
-    manynet::snet_info("No membership vector assigned.",
-                       "Partitioning the network using {.fn node_in_partition}.")
-    membership <- node_in_partition(.data)
+  signed <- manynet::is_signed(.data)
+  if(signed && manynet::is_twomode(.data)){
+    manynet::snet_info("Measuring the first mode, projected with",
+                       "{.code to_mode(.data, 1, \"signed\")}.")
+    # A membership of all the nodes is cut to the first mode's.
+    first <- manynet::net_dims(.data)[1]
+    if(!is.null(membership) && length(membership) == manynet::net_nodes(.data))
+      membership <- membership[seq_len(first)]
+    .data <- .to_signed_mode1(.data)
   }
-  out <- stats::cor(c(manynet::as_matrix(.data)), 
-                    c(manynet::as_matrix(manynet::create_components(.data,
-                                                                    membership = membership))))
+  if(is.null(membership)){
+    if(signed){
+      manynet::snet_info("No membership vector assigned.",
+                         "Splitting the network into two camps by the",
+                         "leading eigenvector of its signed ties.")
+      membership <- .signed_camps(.data)
+    } else {
+      manynet::snet_info("No membership vector assigned.",
+                         "Partitioning the network using {.fn node_in_partition}.")
+      membership <- node_in_partition(.data)
+    }
+  }
+  if(length(membership) != manynet::net_nodes(.data))
+    manynet::snet_abort("{.arg membership} must give one group for each node,",
+                        "{manynet::net_nodes(.data)} in all.")
+  if(variant == "esteban"){
+    sensitivity <- check_sensitivity(sensitivity)
+    out <- .esteban_ray(.data, membership, sensitivity, signed)
+    return(make_network_measure(out, .data, call = deparse(sys.call()),
+                                measure = "Esteban-Ray polarisation",
+                                range = c(0, 1), normalization = "normalized",
+                                variant = variant))
+  }
+  if(signed){
+    obs <- sign(manynet::as_matrix(.data))
+    groups <- as.character(membership)
+    ideal <- ifelse(outer(groups, groups, "=="), 1, -1)
+    # A pair without a tie neither agrees nor opposes, so only the pairs
+    # with a tie are compared.
+    off <- row(obs) != col(obs) & obs != 0
+    out <- stats::cor(obs[off], ideal[off])
+  } else {
+    out <- stats::cor(c(manynet::as_matrix(.data)),
+                      c(manynet::as_matrix(manynet::create_components(.data,
+                                                                      membership = membership))))
+  }
   make_network_measure(out, .data, call = deparse(sys.call()),
                        measure = "factional correlation", range = c(-1, 1),
-                       normalization = "none")
+                       normalization = "none", variant = variant)
+}
+
+# Two camps by the sign of the leading eigenvector of the signed ties, read
+# as undirected. Unlike `node_in_spinglass()`, this needs no connected
+# network: a node with no ties takes the first camp.
+.signed_camps <- function(.data){
+  mat <- sign(manynet::as_matrix(.data))
+  mat <- (mat + t(mat)) / 2
+  diag(mat) <- 0
+  lead <- eigen(mat, symmetric = TRUE)$vectors[, 1]
+  ifelse(lead >= 0, "A", "B")
+}
+
+# Esteban and Ray's (1994) index of polarisation, with the distance between
+# two groups read from the signs of the ties between them, and divided by its
+# maximum, that of two equal groups at distance 1.
+.esteban_ray <- function(.data, membership, sensitivity, signed){
+  groups <- as.character(membership)
+  shares <- table(groups) / length(groups)
+  if(!signed){
+    manynet::snet_info("Every tie in an unsigned network is positive,",
+                       "so no two groups are apart.")
+    return(0)
+  }
+  ties <- manynet::as_edgelist(manynet::to_unnamed(.data))
+  signs <- as.numeric(manynet::tie_signs(.data))
+  from <- groups[ties$from]
+  to <- groups[ties$to]
+  between <- from != to
+  if(!any(between)){
+    manynet::snet_info("No ties run between the groups,",
+                       "so no two groups are apart.")
+    return(0)
+  }
+  # A pair of groups is read the same in either direction.
+  pair <- ifelse(from < to, paste(from, to, sep = "\r"),
+                 paste(to, from, sep = "\r"))[between]
+  distance <- (1 - tapply(signs[between], pair, mean)) / 2
+  ends <- strsplit(names(distance), "\r", fixed = TRUE)
+  g <- vapply(ends, `[`, character(1), 1)
+  h <- vapply(ends, `[`, character(1), 2)
+  apart <- sum(choose(length(shares), 2))
+  if(length(distance) < apart)
+    manynet::snet_info("{apart - length(distance)} pair{?s} of groups",
+                       "{?has/have} no ties between {?it/them}, and {?is/are}",
+                       "left out.")
+  # Each unordered pair enters the sum twice, once from each side.
+  out <- sum((shares[g]^(1 + sensitivity) * shares[h] +
+                shares[h]^(1 + sensitivity) * shares[g]) * distance)
+  as.numeric(out / (1/2)^(1 + sensitivity))
 }
 
 #' @rdname measure_fit
@@ -571,8 +782,19 @@ net_by_factions <- function(.data,
 #'   can miss small clusters that 'hide' inside larger clusters.
 #'   In the extreme case, this can be where they are only connected
 #'   to the rest of the network through a single tie.
-#'   To help manage this problem, a `resolution` parameter is added. 
+#'   To help manage this problem, a `resolution` parameter is added.
 #'   Please see the argument definition for more details.
+#'
+#'   For signed networks, `net_by_modularity()` returns signed
+#'   modularity (Gómez, Jensen, and Arenas 2009).
+#'   The positive and the negative ties are each compared with their own
+#'   random baseline, and the negative score is subtracted,
+#'   so that a negative tie inside a group counts against the partition
+#'   and a negative tie between groups counts for it.
+#'   It ranges between -1 and 1, and is the quality that
+#'   [node_in_spinglass()] maximises on a signed network.
+#'   A directed signed network is read as undirected, and a signed two-mode
+#'   network is read by the magnitude of its ties.
 #' @param resolution A proportion indicating the resolution scale.
 #'   By default 1, which returns the original definition of modularity.
 #'   The higher this parameter, the more smaller communities will be privileged.
@@ -601,8 +823,6 @@ net_by_modularity <- function(.data,
                               resolution = 1){
   .data <- manynet::expect_nodes(.data)
   .data <- .to_aggregated_css(.data)
-  # modularity counts a tie however it is signed, as a census does
-  .data <- manynet::to_unsigned(.data, keep = "both")
   membership <- .resolve_membership(.data, membership)
   if(is.null(membership)){
     manynet::snet_info("Since no membership argument has been provided,",
@@ -610,6 +830,14 @@ net_by_modularity <- function(.data,
     membership <- node_in_partition(.data)
   }
   if(!is.numeric(membership)) membership <- as.numeric(as.factor(membership))
+  if(manynet::is_signed(.data) && !manynet::is_twomode(.data))
+    return(make_network_measure(.signed_modularity(.data, membership, resolution),
+                                .data, call = deparse(sys.call()),
+                                measure = "signed modularity",
+                                range = c(-1, 1), normalization = "none"))
+  # a signed two-mode network has no signed null model here, so it is read
+  # by the magnitude of its ties
+  .data <- manynet::to_unsigned(.data, keep = "both")
   if(!manynet::is_graph(.data)) .data <- as_igraph(.data)
   if(manynet::is_twomode(.data)){
     make_network_measure(igraph::modularity(manynet::to_multilevel(.data), 
@@ -626,6 +854,28 @@ net_by_modularity <- function(.data,
                               measure = "modularity",
                               range = `if`(resolution == 1, c(-0.5, 1), c(-Inf, 1)),
                               normalization = "none")
+}
+
+# Modularity for a signed network (Gómez, Jensen, and Arenas 2009).
+# The positive and the negative ties are each scored against their own null
+# model, and the negative score is subtracted, so that a negative tie inside a
+# group counts against the partition. This is also the quality that spinglass
+# maximises on a signed network (Traag and Bruggeman 2009).
+# A directed network is read as undirected, as spinglass reads it.
+.signed_modularity <- function(.data, memb, resolution = 1){
+  A <- manynet::as_matrix(manynet::to_onemode(.data))
+  A <- (A + t(A))/2
+  diag(A) <- 0
+  same <- outer(memb, memb, "==")
+  part <- function(W){
+    total <- sum(W)
+    if(total == 0) return(0)
+    deg <- rowSums(W)
+    sum((W - resolution * outer(deg, deg)/total)[same])
+  }
+  pos <- pmax(A, 0)
+  neg <- pmax(-A, 0)
+  (part(pos) - part(neg))/(sum(pos) + sum(neg))
 }
 
 #' @rdname measure_fit
@@ -771,13 +1021,14 @@ net_by_divergence <- function(.data, ideal = manynet::create_core,
     if(manynet::is_multilevel(.data))
       manynet::snet_abort("{.fn net_by_divergence} builds an ideal of one",
                           "layer, and this network holds two. Take one layer",
-                          "first, e.g. with {.fn to_mode1} or {.fn to_uniplex},",
+                          "first, e.g. with {.fn to_mode1} or {.fn to_layer},",
                           "or pass an ideal network instead.")
     fmls <- names(formals(ideal))
     args <- list(.data)
     if("mark" %in% fmls){
       if(is.null(mark)) mark <- node_is_core(.data)
-      args$mark <- as.logical(mark)
+      # numbers, with 1 for the core; see `net_by_core()`
+      args$mark <- ifelse(as.logical(mark), 1, 2)
     }
     if("membership" %in% fmls){
       membership <- .resolve_membership(.data, membership)
@@ -825,16 +1076,7 @@ net_by_divergence <- function(.data, ideal = manynet::create_core,
       ide <- pmax(ide, t(ide))
     }
     keep <- .valid_cells(.data, obs)
-    obs <- obs[keep] != 0
-    ide <- ide[keep] != 0
-    if(variant == "hamming"){
-      # two networks without any possible ties are identical
-      out <- if(length(obs) == 0) 0 else mean(obs != ide)
-    } else {
-      union <- sum(obs | ide)
-      # two networks without any ties are identical
-      out <- if(union == 0) 0 else 1 - sum(obs & ide)/union
-    }
+    out <- 1 - .agreement(.confusion(obs[keep] != 0, ide[keep] != 0), variant)
   }
   make_network_measure(out, .data, call = deparse(sys.call()),
                        measure = switch(variant,
@@ -843,6 +1085,183 @@ net_by_divergence <- function(.data, ideal = manynet::create_core,
                                         portrait = "portrait divergence"),
                        range = c(0, 1), normalization = "normalized",
                        variant = variant)
+}
+
+# The confusion matrix of a network against a reference, as four counts over
+# the same cells, each read as a tie present or absent.
+.confusion <- function(obs, ref){
+  c(true_positives = sum(obs & ref), false_positives = sum(obs & !ref),
+    false_negatives = sum(!obs & ref), true_negatives = sum(!obs & !ref))
+}
+
+# How far a network agrees with a reference, from its confusion matrix:
+# the share of cells that agree ("hamming"), or the share of ties in either
+# that are in both ("jaccard"). Two networks without any cells, or without
+# any ties, are identical.
+.agreement <- function(cm, variant = c("hamming", "jaccard")){
+  variant <- match.arg(variant)
+  if(variant == "hamming"){
+    total <- sum(cm)
+    if(isTRUE(total == 0)) 1 else
+      (cm[["true_positives"]] + cm[["true_negatives"]]) / total
+  } else {
+    union <- sum(cm[c("true_positives", "false_positives", "false_negatives")])
+    if(isTRUE(union == 0)) 1 else cm[["true_positives"]] / union
+  }
+}
+
+# Accuracy ####
+
+# The confusion matrix of each reporter's slice of a cognitive social structure
+# against an ideal network, with one row for each node. Each layer of reports
+# is compared with the same layer of the ideal, by default its own locally
+# aggregated structure, and the counts are summed over the layers. A layer
+# whose ties name no reporter, such as a formal reporting line, holds no
+# reports to compare. A cell that is missing in either network is left out.
+.css_confusion <- function(.data, ideal = NULL){
+  .data <- manynet::expect_nodes(.data)
+  if(!manynet::is_cognitive(.data))
+    manynet::snet_abort("Accuracy compares each reporter's view of a network",
+                        "with an ideal, and this network names no reporters.",
+                        "To compare two networks, use {.fn net_by_divergence}.")
+  ties <- manynet::as_stocnet(.data)$ties
+  layers <- if(manynet::is_multiplex(.data))
+    unique(as.character(ties$layer[!is.na(ties$by)])) else NA
+  out <- NULL
+  for(layer in layers){
+    css <- if(is.na(layer)) .data else manynet::to_layer(.data, layer)
+    ref <- if(is.null(ideal)) css else manynet::expect_nodes(ideal)
+    if(!is.na(layer) && manynet::is_multiplex(ref))
+      ref <- manynet::to_layer(ref, layer)
+    reports <- manynet::as_matrix(css)
+    ref <- manynet::as_matrix(.to_aggregated_css(ref))
+    if(!identical(dim(ref), dim(reports)[1:2]))
+      manynet::snet_abort("The ideal must hold the same nodes as the network.")
+    keep <- .valid_cells(.data, ref) & !is.na(ref)
+    counts <- t(vapply(seq_len(dim(reports)[3]), function(r){
+      obs <- reports[, , r]
+      cells <- keep & !is.na(obs)
+      .confusion(obs[cells] != 0, ref[cells] != 0)
+    }, FUN.VALUE = numeric(4)))
+    out <- if(is.null(out)) counts else out + counts
+  }
+  out
+}
+
+#' Measures of reporter accuracy
+#' @name measure_accuracy_node
+#' @description
+#'   `node_by_accuracy()` measures how well each node's report of a cognitive
+#'   social structure agrees with an ideal network, from 0 to 1 where the
+#'   report _is_ the ideal.
+#'
+#'   A cognitive social structure (Krackhardt 1987) asks each node to report
+#'   the ties of the whole network.
+#'   Each report is compared with the ideal tie by tie.
+#'   By default, the ideal is the locally aggregated structure, where a tie
+#'   exists if both of its ends report it.
+#'   Note that this ideal uses each node's reports of its own ties, so a node
+#'   agrees with it on part of its own dyads.
+#'   For a different ideal, such as a consensus structure, give it as `ideal`,
+#'   e.g. `manynet::to_aggregated(.data, over = "by")`.
+#'   Where the network holds several layers of reports, each layer is
+#'   compared with the same layer of the ideal, and the cells are pooled.
+#'
+#'   There are two variants:
+#'
+#'   - `"hamming"` (the default) is the share of possible ties on which the
+#'   report and the ideal agree, whether on a tie or on its absence.
+#'   This is the classic accuracy.
+#'   Most possible ties are absent in a sparse network, so a node that
+#'   reports few ties can still score high.
+#'   - `"jaccard"` is the share of ties in either the report or the ideal
+#'   that are in both. It ignores ties absent from both.
+#'
+#'   These are one minus the `"hamming"` and `"jaccard"` variants of
+#'   [net_by_divergence()] between each node's report and the ideal.
+#'   For the counts of each kind of agreement and error,
+#'   see [node_x_accuracy()].
+#' @template param_data
+#' @param ideal The ideal network to compare each report against,
+#'   with the same nodes as the network.
+#'   By default, the locally aggregated structure of the network itself.
+#' @template param_variant
+#' @family features
+#' @template node_measure
+#' @references
+#' ## On cognitive social structures
+#' Krackhardt, David. 1987.
+#' "Cognitive social structures".
+#' _Social Networks_ 9(2): 109-134.
+#' \doi{10.1016/0378-8733(87)90009-8}
+#' @examples
+#' node_by_accuracy(ison_hightech)
+#' node_by_accuracy(ison_hightech, variant = "jaccard")
+#' @export
+node_by_accuracy <- function(.data, ideal = NULL,
+                             variant = c("hamming", "jaccard")){
+  variant <- match.arg(variant)
+  cm <- .css_confusion(.data, ideal)
+  out <- apply(cm, 1, .agreement, variant = variant)
+  make_node_measure(out, .data,
+                    measure = switch(variant,
+                                     hamming = "Hamming accuracy",
+                                     jaccard = "Jaccard accuracy"),
+                    range = c(0, 1), normalization = "normalized",
+                    variant = variant)
+}
+
+#' Measures of network accuracy
+#' @name measure_accuracy_net
+#' @description
+#'   `net_by_accuracy()` measures how well the nodes' reports of a cognitive
+#'   social structure agree with an ideal network, on average.
+#'   It is the mean of [node_by_accuracy()] over the nodes,
+#'   from 0 to 1 where every report _is_ the ideal.
+#' @inheritParams measure_accuracy_node
+#' @family features
+#' @template net_measure
+#' @examples
+#' net_by_accuracy(ison_hightech)
+#' @export
+net_by_accuracy <- function(.data, ideal = NULL,
+                            variant = c("hamming", "jaccard")){
+  variant <- match.arg(variant)
+  out <- mean(node_by_accuracy(.data, ideal, variant))
+  make_network_measure(out, .data, call = deparse(sys.call()),
+                       measure = switch(variant,
+                                        hamming = "mean Hamming accuracy",
+                                        jaccard = "mean Jaccard accuracy"),
+                       range = c(0, 1), normalization = "normalized",
+                       variant = variant)
+}
+
+#' Motifs of reporter accuracy
+#' @name motif_accuracy_node
+#' @description
+#'   `node_x_accuracy()` counts, for each node's report of a cognitive social
+#'   structure, the possible ties on which it agrees or disagrees with an
+#'   ideal network.
+#'   The four columns are the confusion matrix of the report:
+#'
+#'   - `true_positives`: ties in both the report and the ideal.
+#'   - `false_positives`: ties in the report but not in the ideal.
+#'   - `false_negatives`: ties in the ideal but not in the report.
+#'   - `true_negatives`: ties in neither.
+#'
+#'   From these, e.g. a node's sensitivity is
+#'   `true_positives / (true_positives + false_negatives)`,
+#'   and its specificity is
+#'   `true_negatives / (true_negatives + false_positives)`.
+#'   For the ideal, see [node_by_accuracy()].
+#' @inheritParams measure_accuracy_node
+#' @family features
+#' @template node_motif
+#' @examples
+#' node_x_accuracy(ison_hightech)
+#' @export
+node_x_accuracy <- function(.data, ideal = NULL){
+  make_node_motif(.css_confusion(.data, ideal), .data)
 }
 
 # A network's portrait (Bagrow and Bollt 2019): the matrix whose entry in row
@@ -968,7 +1387,7 @@ net_by_inconsistency <- function(.data, membership = NULL,
   }
   mat <- manynet::as_matrix(manynet::to_unweighted(manynet::to_onemode(.data)))
   memb <- as.numeric(as.factor(membership))
-  loops <- manynet::is_complex(.data)
+  loops <- manynet::is_looped(.data)
   total <- .block_cost(mat, memb, blocks, loops)
   cells <- if(loops) length(mat) else length(mat) - nrow(mat)
   make_network_measure(total/cells, .data, call = deparse(sys.call()),

@@ -2,7 +2,6 @@
 
 #' Measures of node brokerage
 #' @name measure_broker_node
-#' @template section_cognitive
 #' @description
 #'   These function provide different measures of the degree to which nodes
 #'   fill structural holes, as outlined in Burt (1992):
@@ -31,6 +30,12 @@
 #'   where \eqn{t} is the sum of ties and \eqn{n} the sum of nodes in each node's neighbourhood,
 #'   and effective size is calculated as \eqn{n - \frac{2t}{n}}.
 #'   Node efficiency is the node's effective size divided by its degree.
+#'
+#'   For multilevel networks, `node_by_effsize()` and `node_by_efficiency()`
+#'   measure the network whole, as [net_by_independence()] does.
+#'   A multilevel network reports itself as two-mode, but holds ties within a
+#'   mode as well as between them, so it cannot be projected onto one mode.
+#'   The projection remains for genuine two-mode networks.
 #' @references 
 #' ## On structural holes
 #' Burt, Ronald S. 1992. 
@@ -39,12 +44,6 @@
 #' @template param_data
 #' @family brokerage
 #' @template node_measure
-#' @section Multilevel networks:
-#'   A multilevel network reports itself as two-mode, but holds ties within a
-#'   mode as well as between them, so it cannot be projected onto one mode.
-#'   `node_by_effsize()` and `node_by_efficiency()` therefore measure a
-#'   multilevel network whole, as [net_by_independence()] does. The projection
-#'   remains for genuine two-mode networks.
 NULL
 
 #' @rdname measure_broker_node 
@@ -81,7 +80,8 @@ node_by_bridges <- function(.data){
 node_by_redundancy <- function(.data){
   .data <- manynet::expect_nodes(.data)
   .data <- .to_aggregated_css(.data)
-  if(manynet::is_twomode(.data)){
+  # A multilevel network is square over every node, as in `node_by_effsize()`.
+  if(manynet::is_twomode(.data) && !manynet::is_multilevel(.data)){
     mat <- manynet::as_matrix(.data)
     out <- c(.redund2(mat), .redund2(t(mat)))
   } else {
@@ -100,18 +100,21 @@ node_by_redundancy <- function(.data){
   out
 }
 
+# For each node x of the first mode, each alter b it shares a partner with
+# counts the alters x and b share (A %*% A), weighted by how many partners
+# x and b share (sigi), over all that x shares with its alters. In a weighted
+# network each alter is also divided by twice the mean, over the partners j,
+# of x's tie weight to j plus b's weight to j where x is tied to j.
 .redund2 <- function(.mat){
   sigi <- .mat %*% t(.mat)
   diag(sigi) <- 0
-  vapply(seq.int(nrow(sigi)), 
-         function(x){
-           xvec <- sigi[x,] #> 0
-           if(manynet::is_weighted(.mat)){
-             wt <- colMeans((.mat[x,] > 0 * t(.mat[xvec > 0,])) * t(.mat[xvec > 0,]) + .mat[x,]) * 2  
-           } else wt <- 1
-           sum(colSums(xvec > 0 & t(sigi[xvec > 0,])) * xvec[xvec > 0] / 
-                 (sum(xvec) * wt))
-         }, FUN.VALUE = numeric(1))
+  adj <- (sigi > 0) * 1
+  wt <- if(manynet::is_weighted(.mat)){
+    2 * ((.mat > 0) %*% t(.mat) + rowSums(.mat)) / ncol(.mat)
+  } else 1
+  out <- rowSums(ifelse(sigi > 0, (adj %*% adj) * sigi / wt, 0)) / rowSums(sigi)
+  out[rowSums(sigi) == 0] <- 0
+  out
 }
 
 #' @rdname measure_broker_node 
@@ -177,39 +180,10 @@ node_by_efficiency <- function(.data){
 node_by_constraint <- function(.data) {
   .data <- manynet::expect_nodes(.data)
   .data <- .to_aggregated_css(.data)
-  if (manynet::is_twomode(.data)) {
-    get_constraint_scores <- function(mat) {
-      inst <- colnames(mat)
-      rowp <- mat * matrix(1 / rowSums(mat), nrow(mat), ncol(mat))
-      colp <- mat * matrix(1 / colSums(mat), nrow(mat), ncol(mat), byrow = T)
-      res <- vector()
-      for (i in inst) {
-        ci <- 0
-        membs <- names(which(mat[, i] > 0))
-        for (a in membs) {
-          pia <- colp[a, i]
-          oth <- membs[membs != a]
-          pbj <- 0
-          if (length(oth) == 1) {
-            for (j in inst[mat[oth, ] > 0 & inst != i]) {
-              pbj <- sum(pbj, sum(colp[oth, i] * rowp[oth, j] * colp[a, j]))
-            }
-          } else {
-            for (j in inst[colSums(mat[oth, ]) > 0 & inst != i]) {
-              pbj <- sum(pbj, sum(colp[oth, i] * rowp[oth, j] * colp[a, j]))
-            }
-          }
-          cia <- (pia + pbj)^2
-          ci <- sum(ci, cia)
-        }
-        res <- c(res, ci)
-      }
-      names(res) <- inst
-      res
-    }
-    inst.res <- get_constraint_scores(manynet::as_matrix(.data))
-    actr.res <- get_constraint_scores(t(manynet::as_matrix(.data)))
-    res <- c(actr.res, inst.res)
+  # A multilevel network is square over every node, as in `node_by_effsize()`.
+  if (manynet::is_twomode(.data) && !manynet::is_multilevel(.data)) {
+    mat <- manynet::as_matrix(.data)
+    res <- c(.constraint2(t(mat)), .constraint2(mat))
   } else {
     res <- igraph::constraint(manynet::as_igraph(.data), 
                               nodes = igraph::V(.data), 
@@ -217,6 +191,27 @@ node_by_constraint <- function(.data) {
   }
   make_node_measure(res, .data, measure = "constraint", range = c(0, Inf),
                     normalization = "none")
+}
+
+# The two-mode constraint of each node of the second mode (the columns of
+# `.mat`). Node i's constraint sums, over each member a tied to it,
+# (p_ai + sum over the other members b and other nodes j of
+# p_bi * r_bj * p_aj)^2, where r is a tie's share of its row and p its share
+# of its column. The inner sum is read from matrix products: M[b,a] sums
+# r_bj * p_aj over every j, and the terms where b is a or j is i are taken
+# out again.
+.constraint2 <- function(.mat){
+  rowp <- .mat / rowSums(.mat)
+  colp <- t(t(.mat) / colSums(.mat))
+  rowp[!is.finite(rowp)] <- 0 # isolates
+  colp[!is.finite(colp)] <- 0
+  M <- rowp %*% t(colp)
+  tp <- t(colp)
+  others <- tp %*% M - tp * rep(diag(M), each = ncol(.mat)) -
+    tp * colSums(colp * rowp) + tp^2 * t(rowp)
+  out <- rowSums((tp + others)^2 * (t(.mat) > 0))
+  names(out) <- colnames(.mat)
+  out
 }
 
 #' @rdname measure_broker_node 
@@ -263,7 +258,6 @@ node_by_neighbours_degree <- function(.data){
 
 #' Measures of tie brokerage
 #' @name measure_broker_tie
-#' @template section_cognitive
 #' @description
 #'   `tie_by_cohesion()` measures the ratio between common neighbors to ties'
 #'   adjacent nodes and the total number of adjacent nodes,

@@ -3,7 +3,7 @@
 # substitution testable.
 
 marvel_friends <- manynet::to_unsigned(
-  manynet::to_uniplex(manynet::fict_marvel, "relationship"), "positive")
+  manynet::to_layer(manynet::fict_marvel, "relationship"), "positive")
 
 test_that("network heterogeneities meet the measure contract", {
   check_measure_contract(measure_rosters$heterogeneity_net, marvel_friends,
@@ -17,10 +17,28 @@ test_that("node heterogeneities meet the measure contract", {
   expect_declared(measure_rosters$heterogeneity_node, marvel_friends)
 })
 
+test_that("tie heterogeneities meet the measure contract", {
+  check_measure_contract(measure_rosters$heterogeneity_tie, marvel_friends,
+                         level = "tie")
+  expect_declared(measure_rosters$heterogeneity_tie, marvel_friends)
+})
+
+test_that("node domains meet the measure contract", {
+  check_measure_contract(measure_rosters$heterogeneity_domain, marvel_friends,
+                         level = "node")
+  expect_declared(measure_rosters$heterogeneity_domain, marvel_friends)
+})
+
 test_that("spatial autocorrelation meets the measure contract", {
   check_measure_contract(measure_rosters$heterogeneity_spatial,
                          manynet::ison_lawfirm, level = "net")
   expect_declared(measure_rosters$heterogeneity_spatial, manynet::ison_lawfirm)
+  check_measure_contract(measure_rosters$heterogeneity_moran_net,
+                         manynet::ison_lawfirm, level = "net")
+  expect_declared(measure_rosters$heterogeneity_moran_net, manynet::ison_lawfirm)
+  check_measure_contract(measure_rosters$heterogeneity_moran_node,
+                         manynet::ison_lawfirm, level = "node")
+  expect_declared(measure_rosters$heterogeneity_moran_node, manynet::ison_lawfirm)
 })
 
 test_that("measures report the index they actually used", {

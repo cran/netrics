@@ -51,9 +51,9 @@ learnr::random_phrases_add(language = "en",
                                       "Well done!",
                                       "Awesome!"),
                            encouragement = c("Good effort"))
-friends <- to_uniplex(ison_algebra, "friends")
-social <- to_uniplex(ison_algebra, "social")
-tasks <- to_uniplex(ison_algebra, "tasks")
+friends <- to_layer(ison_algebra, "friends")
+social <- to_layer(ison_algebra, "social")
+tasks <- to_layer(ison_algebra, "tasks")
 ```
 
 ```{r detect-language, context="server-start", purl=FALSE}
@@ -134,11 +134,13 @@ By the end of this tutorial, you should be able to:
 - [ ] &nbsp; Measure how cohesive a network is with `net_by_density()`, and interpret the result for the type of network at hand
 - [ ] &nbsp; Measure closure with `net_by_reciprocity()` and `net_by_transitivity()`, and connect each to a mechanism of tie formation
 - [ ] &nbsp; Project a two-mode network into its one-mode projections with `to_mode1()` and `to_mode2()`, choosing an appropriate similarity option — and know what projection obscures
+- [ ] &nbsp; Keep every membership of a two-mode network in a concept lattice with `to_concepts()`, and read it from the top down
 - [ ] &nbsp; Count weak and strong components with `net_by_components()` and map their membership with `node_in_component()`
 - [ ] &nbsp; Concentrate on a network's giant component with `to_giant()` and split it into factions with `node_in_partition()`
 - [ ] &nbsp; Judge the fit of _any_ membership assignment with `net_by_modularity()`
 - [ ] &nbsp; Detect communities with the walktrap, edge-betweenness, fast-greedy, and Louvain algorithms, and let `node_in_community()` choose among them for you
 - [ ] &nbsp; Tune how large a community must be to be kept separate with `resolution=`, and say why the resolution limit makes this necessary
+- [ ] &nbsp; Explain why random networks also have communities, and compare an observed modularity with random networks made by `generate_random()`
 
 **Choose your own data**: The worked examples below use `ison_algebra`,
 `ison_southern_women`, and `irps_blogs`,
@@ -220,28 +222,28 @@ as they are assigned randomly from a pool of (American) first names.
 As a multiplex network,
 there are actually three different types of ties (friends, social, and tasks)
 in this network.
-We can extract them and graph them separately using `to_uniplex()`:
+We can extract them and graph them separately using `to_layer()`:
 
 ```{r separatingnets, exercise=TRUE, exercise.setup = "data", purl = FALSE}
 
 ```
 
 ```{r separatingnets-hint-1, purl = FALSE}
-# to_uniplex extracts ties of a single type,
+# to_layer extracts ties of a single type,
 # focusing on the 'friends' tie attribute here
-friends <- to_uniplex(ison_algebra, "friends")
+friends <- to_layer(ison_algebra, "friends")
 gfriend <- graphr(friends) + ggtitle("Friendship")
 ```
 
 ```{r separatingnets-hint-2, purl = FALSE}
 # now let's focus on the 'social' tie attribute
-social <- to_uniplex(ison_algebra, "social")
+social <- to_layer(ison_algebra, "social")
 gsocial <- graphr(social) + ggtitle("Social")
 ```
 
 ```{r separatingnets-hint-3, purl = FALSE}
 # and the 'tasks' tie attribute
-tasks <- to_uniplex(ison_algebra, "tasks")
+tasks <- to_layer(ison_algebra, "tasks")
 gtask <- graphr(tasks) + ggtitle("Task")
 ```
 
@@ -255,13 +257,13 @@ gfriend + gsocial + gtask
 ```
 
 ```{r separatingnets-solution}
-friends <- to_uniplex(ison_algebra, "friends")
+friends <- to_layer(ison_algebra, "friends")
 gfriend <- graphr(friends) + ggtitle("Friendship")
 
-social <- to_uniplex(ison_algebra, "social")
+social <- to_layer(ison_algebra, "social")
 gsocial <- graphr(social) + ggtitle("Social")
 
-tasks <- to_uniplex(ison_algebra, "tasks")
+tasks <- to_layer(ison_algebra, "tasks")
 gtask <- graphr(tasks) + ggtitle("Task")
 
 # We now have three separate networks depicting each type of tie from the ison_algebra network:
@@ -519,7 +521,8 @@ Both hint at the group structure explored in the rest of this tutorial.
 <span class="page-toc-link" onclick="document.getElementById('section-a-two-mode-network').scrollIntoView({behavior:'auto',block:'start'});">A two-mode network</span> ·
 <span class="page-toc-link" onclick="document.getElementById('section-two-projections').scrollIntoView({behavior:'auto',block:'start'});">Two projections</span> ·
 <span class="page-toc-link" onclick="document.getElementById('section-projection-options').scrollIntoView({behavior:'auto',block:'start'});">Projection options</span> ·
-<span class="page-toc-link" onclick="document.getElementById('section-two-mode-closure').scrollIntoView({behavior:'auto',block:'start'});">Two-mode closure</span></span>
+<span class="page-toc-link" onclick="document.getElementById('section-two-mode-closure').scrollIntoView({behavior:'auto',block:'start'});">Two-mode closure</span> ·
+<span class="page-toc-link" onclick="document.getElementById('section-galois-lattices').scrollIntoView({behavior:'auto',block:'start'});">Galois lattices</span></span>
 
 ### A two-mode network {#a-two-mode-network}
 
@@ -579,7 +582,7 @@ women_graph <- to_mode1(ison_southern_women)
 graphr(women_graph)
 
 # note that projection `to_mode1` involves keeping one type of nodes
-# this is different from to_uniplex above, which keeps one type of ties in the network
+# this is different from to_layer above, which keeps one type of ties in the network
 
 # event-graph
 # to_mode2(): Results in a weighted one-mode object that retains the column nodes from
@@ -696,12 +699,100 @@ of how much the women's attendance patterns actually reinforce one another.
 
 Try to explain in no more than a paragraph why projection can lead to misleading transitivity measures and what some consequences of this might be.
 
+### Galois lattices {#galois-lattices}
+
+Projection hides which women attended which events.
+A concept (or Galois) lattice keeps every one of those memberships
+(Freeman and White 1993).
+Each node in the lattice is a _concept_:
+a set of women (its `extent`) together with the set of events
+that all of them attended (its `intent`),
+where no other woman attended all of those events
+and the women share no other event.
+A tie joins a concept to the next concept below it,
+which holds fewer women who share more events.
+
+Let's start with a small example of four women and three events.
+`create_explicit()` takes each woman and the events she attended,
+and `to_twomode()` marks the events as the second mode.
+Then `to_concepts()` projects the network into its lattice.
+
+```{r galois-toy, exercise=TRUE}
+# each woman, and the events she attended
+toy <- create_explicit(Ann-E1:E2, Bea-E1:E2:E3, Cat-E2:E3, Dee-E3)
+# mark the events as the second mode
+toy <- to_twomode(toy, node_names(toy) %in% c("E1","E2","E3"))
+toy_lattice <- to_concepts(toy)
+toy_lattice
+graphr(toy_lattice, "layered")
+```
+
+You read the lattice from the top down,
+with each level representing a more specific grouping of women based on their shared events.
+Each label names the women and the `{events}` that _first_ appear at that concept.
+So, the top concept holds all four women, who share no event,
+`{E2}` is the concept of the three women who attended E2 (Ann, Bea, and Cat),
+and `Dee {E3}` is the concept that holds Cat and Bea (who also attended E3) and Dee (who attended only E3).
+A woman is in her own concept and in every concept above it.
+Bea attended all three events, so she is at the bottom,
+in the one concept that has every event (reading upwards).
+Now try this on the Southern Women.
+
+```{r galois-women, exercise=TRUE, exercise.setup = "setup-women"}
+women_lattice <- to_concepts(ison_southern_women)
+women_lattice
+graphr(women_lattice, "layered")
+```
+
+This lattice is much larger, but it reads in the same way.
+Freeman (2003) uses it to find the groups among the Southern Women:
+look for the women who first appear low down, under a few shared events,
+and for the concepts where the two groups of women meet.
+
+Use the `extent` node attribute to find every concept that holds Evelyn.
+
+```{r galois-evelyn, exercise=TRUE, exercise.setup = "galois-women", purl = FALSE}
+
+```
+
+```{r galois-evelyn-hint-1, purl = FALSE}
+# node_attribute() gives the extent of each concept as a list of names
+node_attribute(women_lattice, "extent")
+```
+
+```{r galois-evelyn-hint-2, purl = FALSE}
+# check whether "Evelyn" is in each extent
+vapply(node_attribute(women_lattice, "extent"),
+       function(women) "Evelyn" %in% women, logical(1))
+```
+
+```{r galois-evelyn-solution}
+has_evelyn <- vapply(node_attribute(women_lattice, "extent"),
+                     function(women) "Evelyn" %in% women, logical(1))
+node_names(women_lattice)[has_evelyn]
+```
+
+```{r galois-interp, echo=FALSE, purl = FALSE}
+question("What does the lattice show that the women's projection does not?",
+  answer("Which events each set of women shares.",
+         correct = TRUE,
+         message = "Yes -- each concept keeps its events as well as its women, so the memberships are not lost."),
+  answer("How many events each pair of women shares.",
+         message = "The projection also shows this, as the weight of each tie in `to_mode1()`."),
+  answer("Groups of women nested within larger groups.",
+         correct = TRUE,
+         message = "Yes -- each concept holds fewer women than the concepts above it, so the lattice shows how groups nest."),
+  allow_retry = TRUE
+)
+```
+
 ::: {.callout}
 <span class="callout-label">**In brief**:</span> `to_mode1()`/`to_mode2()` project a two-mode network
 into ties among one of its node sets, with a `similarity` argument
 ("count", "jaccard", "rand", "pearson", "yule") governing the weights.
 Projection inflates transitivity and hides memberships, so where possible
-measure the two-mode network directly, e.g. with `net_by_equivalency()`.
+measure the two-mode network directly, e.g. with `net_by_equivalency()`,
+or keep the memberships with a concept lattice from `to_concepts()`.
 :::
 
 ## Components
@@ -1045,7 +1136,8 @@ and competing groupings can be compared on the same yardstick.
 <span class="page-toc-link" onclick="document.getElementById('section-walktrap').scrollIntoView({behavior:'auto',block:'start'});">Walktrap</span> ·
 <span class="page-toc-link" onclick="document.getElementById('section-edge-betweenness').scrollIntoView({behavior:'auto',block:'start'});">Edge betweenness</span> ·
 <span class="page-toc-link" onclick="document.getElementById('section-fast-greedy').scrollIntoView({behavior:'auto',block:'start'});">Fast greedy</span> ·
-<span class="page-toc-link" onclick="document.getElementById('section-detecting-communities').scrollIntoView({behavior:'auto',block:'start'});">Detecting communities</span></span>
+<span class="page-toc-link" onclick="document.getElementById('section-detecting-communities').scrollIntoView({behavior:'auto',block:'start'});">Detecting communities</span> ·
+<span class="page-toc-link" onclick="document.getElementById('section-random-baselines').scrollIntoView({behavior:'auto',block:'start'});">Random baselines</span></span>
 
 Ok, the friendship network has 3-4 components, but how many 'groups' are there?
 Visually, it looks like there are some denser clusters within the main component.
@@ -1480,6 +1572,112 @@ and `node_in_eigen()` (spectral).
 See `?member_community` for the full list with definitions and references.
 :::
 
+### Random baselines {#random-baselines}
+
+Every algorithm in this section returned communities,
+and every partition had a positive modularity.
+But would they find communities in a network that has none?
+A `r gloss("random")` network places its ties without any group structure.
+`generate_random()` makes one with the same number of nodes and ties
+as the network you give it.
+Let's make a random version of the friendship network,
+and see what Louvain finds in it.
+
+```{r randfri, exercise=TRUE, exercise.setup = "manip-fri"}
+rand_friends <- generate_random(friends)
+rand_lv <- node_in_louvain(rand_friends)
+rand_friends |> mutate_nodes(rand_comm = rand_lv) |>
+  graphr(node_color = "rand_comm", node_group = "rand_comm")
+net_by_modularity(rand_friends, rand_lv)
+```
+
+Louvain still returns communities, and their modularity is still positive.
+An algorithm always returns a partition,
+and in any one network some nodes are tied a little more to each other
+than chance alone expects.
+The algorithm finds these accidents too.
+
+The effect is larger than you may expect.
+Try a sparse random network of 100 nodes,
+in which each pair of nodes is tied with a probability of 0.05:
+
+```{r randsparse, exercise=TRUE}
+sparse <- generate_random(100, 0.05)
+net_by_modularity(sparse, node_in_louvain(sparse))
+```
+
+This network has no groups, but its modularity is often about 0.4,
+which is as high as that of the real friendship network.
+Modularity increases as a network gets larger and sparser,
+so a modularity score alone is not evidence of groups
+(Guimerà, Sales-Pardo and Amaral 2004).
+
+The answer is to compare like with like.
+Run the algorithm on many random networks
+of the same size and density as the observed network,
+and see whether the observed modularity is higher than theirs.
+
+```{r randbase, exercise=TRUE, exercise.setup = "manip-fri", purl = FALSE}
+
+```
+
+```{r randbase-hint-1, purl = FALSE}
+# First, the modularity of the observed network
+obs_q <- net_by_modularity(friends, node_in_louvain(friends))
+```
+
+```{r randbase-hint-2, purl = FALSE}
+# Then, the modularity of 100 random networks of the same size and density.
+# replicate() repeats an expression a number of times and keeps the results.
+rand_q <- replicate(100, {
+  rand <- generate_random(friends)
+  net_by_modularity(rand, node_in_louvain(rand))
+})
+```
+
+```{r randbase-hint-3, purl = FALSE}
+# How do they compare?
+summary(rand_q)
+# What share of the random networks score at least as high as the observed one?
+mean(rand_q >= obs_q)
+```
+
+```{r randbase-solution}
+obs_q <- net_by_modularity(friends, node_in_louvain(friends))
+rand_q <- replicate(100, {
+  rand <- generate_random(friends)
+  net_by_modularity(rand, node_in_louvain(rand))
+})
+summary(rand_q)
+mean(rand_q >= obs_q)
+```
+
+```{r randbase-q, echo=FALSE, purl = FALSE}
+question("What does this comparison tell us about the friendship communities?",
+  answer("The observed modularity is higher than that of the random networks, so the friendship network has more group structure than chance alone gives",
+         correct = TRUE,
+         message = "That's right -- the random networks of the same size and density score about 0.1 to 0.2, and the observed network about 0.4. None or almost none of the random networks score as high."),
+  answer("The random networks have no communities",
+         message = "Not so -- Louvain found communities with a positive modularity in every random network. The question is whether the observed network has *more* structure than they do."),
+  answer("A modularity of about 0.4 always means that a network has groups",
+         message = "Not so -- the sparse random network with 100 nodes also scored about 0.4. What counts is the comparison with random networks of the same size and density."),
+  random_answer_order = TRUE,
+  allow_retry = TRUE
+)
+```
+
+The friendship network has much higher modularity than its random versions,
+so its communities are not only accidents of chance.
+
+::: {.callout}
+<span class="callout-label">**Going further**:</span>
+`generate_random()` keeps the number of ties but not who has many of them.
+`generate_configuration()` also keeps each node's degree,
+which is the same baseline that modularity itself uses.
+Try it in place of `generate_random()` above:
+does the friendship network still stand out?
+:::
+
 ::: {.callout}
 <span class="callout-label">**In brief**:</span> Community detection algorithms cluster nodes by
 tie density: `node_in_walktrap()` via random walks,
@@ -1492,6 +1690,9 @@ which is what makes it fast enough for a large network.
 and returns the assignment that maximises modularity,
 or combines them all with `consensus = TRUE` —
 but always report which algorithm produced the result you analyse.
+Since algorithms find communities even in random networks,
+compare the modularity with that of random networks of the same size
+and density, made with `generate_random()`.
 :::
 
 ## Free play
@@ -1534,7 +1735,7 @@ Along the way, you have learned to use these functions:
 | `tie_is_reciprocated()` | flags each tie as reciprocated or not, for mapping with `edge_color` |
 | `net_by_indegree()` | centralisation of incoming ties, to see how unequal participation is |
 | `net_by_transitivity()` | how often two-paths close into triangles |
-| `to_uniplex()`, `to_named()`, `to_undirected()`, `to_giant()` | extracts one tie type, adds names, drops direction, keeps the giant component |
+| `to_layer()`, `to_named()`, `to_undirected()`, `to_giant()` | extracts one tie type, adds names, drops direction, keeps the giant component |
 | `as_matrix()` | coerces a network to a matrix, e.g. for manual projection |
 | `to_mode1()`, `to_mode2()` | projects a two-mode network onto its row or column nodes, with a `similarity` option |
 | `tie_weights()` | extracts the tie weights, e.g. of a projection |
@@ -1549,6 +1750,7 @@ Along the way, you have learned to use these functions:
 | `node_attribute()` | extracts a nodal attribute, e.g. as an empirical membership |
 | `node_in_walktrap()`, `node_in_betweenness()`, `node_in_greedy()` | community detection via random walks, divisive tie removal, agglomerative merges |
 | `node_in_community()` | surveys applicable algorithms and returns the best assignment by modularity |
+| `generate_random()` | a random network with the same number of nodes and ties, as a baseline |
 | `mutate_nodes()`, `mutate_ties()` | adds measures or memberships to the network for graphing |
 | `graphr(..., node_color = , node_group = , edge_color = )` | maps memberships onto colours and group outlines |
 

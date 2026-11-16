@@ -4,6 +4,7 @@
 \alias{measure_assort_node}
 \alias{node_by_heterophily}
 \alias{node_by_homophily}
+\alias{node_by_concentration}
 \title{Measures of node assortativity}
 \usage{
 node_by_heterophily(.data, attribute)
@@ -11,20 +12,26 @@ node_by_heterophily(.data, attribute)
 node_by_homophily(
   .data,
   attribute,
-  assortativity = c("ie", "ei", "yule", "geary")
+  assortativity = c("ie", "ei", "yule", "geary", "moran")
 )
+
+node_by_concentration(.data, attribute)
 }
 \arguments{
 \item{.data}{A network object of class \code{stocnet}, \code{igraph}, \code{tbl_graph}, \code{network}, or similar.
 Internally any of these will be coerced to an efficient implementation.
 For more information on possible coercions, see e.g. \code{\link[manynet:as_stocnet]{manynet::as_stocnet()}}.}
 
-\item{attribute}{Name of a nodal attribute, mark, measure, or membership vector.}
+\item{attribute}{Name of a nodal attribute, mark, measure, or membership vector.
+Where none is named and the network holds only one nodal attribute
+besides the reserved ones, such as "label" and "mode", that one is used.}
 
 \item{assortativity}{Which method to use for \verb{*_homophily()}.
 Either "ie" (negative E-I index), "ei" (E-I index),
-"yule" (Yule's Q), or "geary" (Geary's C).
+"yule" (Yule's Q), "geary" (Geary's C), or "moran" (Moran's I).
 Default is "ie".
+The first three are for categorical attributes,
+and the last two for numeric attributes.
 The E-I index is the number of ties between (or \emph{external}) nodes
 grouped in some mutually exclusive categories
 minus the number of ties within (or \emph{internal}) these groups
@@ -57,6 +64,15 @@ The upper bound of 2 holds where every tie carries the same weight.
 Geary's C reads the weights where the network has them,
 and a heavy tie between dissimilar values can then carry the sum past 2,
 so a weighted network declares the upper end open.
+
+Moran's I is a measure of spatial autocorrelation, calculated as:
+\deqn{I = \frac{n}{W} \frac{\sum\limits_{i=1}^n \sum\limits_{j=1}^n
+w_{ij} (x_i - \bar{x})(x_j - \bar{x})}{\sum\limits_{i=1}^n (x_i - \bar{x})^2}}
+with the same terms as Geary's C.
+Positive values indicate that tied nodes hold similar values,
+and negative values that they hold dissimilar ones,
+so it runs the same way as the "ie" index, and the other way to Geary's C.
+See the section on spatial autocorrelation for its range.
 If an incompatible method is chosen for the attribute type,
 a suitable alternative will be used instead with a message.}
 }
@@ -81,52 +97,87 @@ of nodes with the same attribute.
 \item \code{node_by_homophily()} measures each node's embeddedness within groups
 of nodes with the same attribute, using a variety of methods.
 }
+
+For most methods, \code{node_by_homophily()} applies the network measure
+to each node's ego network, the node and its neighbours.
+For \code{"moran"} it instead returns local Moran's I (Anselin 1995),
+\deqn{I_i = \frac{x_i - \bar{x}}{m_2} \sum\limits_{j} w_{ij} (x_j - \bar{x})}
+where \eqn{m_2 = \sum_i (x_i - \bar{x})^2 / n}.
+A positive value marks a node that holds a value like its neighbours',
+both high or both low, and a negative value a node unlike its neighbours.
+The local values sum to \eqn{W} times the global Moran's I
+of \code{net_by_homophily()}.
+A node with a missing value is \code{NA}.
 }
-\section{Cognitive social structures}{
+\section{Concentration}{
 
-A cognitive social structure records each node's report of the ties in
-the whole network, in a \code{by} column that names who reported each tie.
-Counting every report as a tie of its own would count each tie once for
-every perceiver who reports it.
-So the functions here first combine the reports into the locally
-aggregated structure of Krackhardt (1987), with the intersection rule:
-a tie exists if both of its ends report it, and a message says so.
-A tie that names no reporter is kept as it is.
+\code{node_by_concentration()} measures whether each node sits in a hot spot
+or a cold spot of a numeric attribute, with the \eqn{G_i^*} statistic of
+Getis and Ord (1992) and Ord and Getis (1995).
+It compares the sum of the values in the neighbourhood of a node,
+the node included, with what that sum would be by chance:
+\deqn{G_i^* = \frac{\sum_j w_{ij} x_j - \bar{x} \sum_j w_{ij}}
+  {s \sqrt{(n \sum_j w_{ij}^2 - (\sum_j w_{ij})^2) / (n - 1)}}}
+where \eqn{w_{ii} = 1}, and \eqn{\bar{x}} and \eqn{s} are the mean and
+standard deviation over all nodes.
+It is a z-score: a large positive value is a hot spot, a neighbourhood
+of high values, and a large negative value is a cold spot, a neighbourhood
+of low values.
 
-A tie-level function still returns one value for each report,
-so that the result can be added back to the network it was given.
-Each report takes the value of the tie that it reports.
-A report of a tie that is not in the aggregated structure takes \code{NA},
-or \code{FALSE} for a mark.
-\code{tie_is_random()} is the exception, and draws among the reports.
-
-To combine the reports in a different way, do this before the function,
-e.g. with \code{manynet::to_aggregated(over = "by")}.
-
-Krackhardt, David. 1987.
-"Cognitive social structures".
-\emph{Social Networks} 9(2): 109-134.
-\doi{10.1016/0378-8733(87)90009-8}
+This differs from local Moran's I (\code{node_by_homophily(assortativity = "moran")}).
+Moran's I asks whether a node is like its neighbours,
+so a cluster of low values gives a positive value, just as a cluster of
+high values does. \eqn{G_i^*} gives a cluster of low values a negative value.
+"Concentration" here is the concentration of high or low values in a
+neighbourhood, and not a Herfindahl index of shares.
+The weights are the tie weights, and a two-mode network is projected
+as for \code{net_by_spatial()}.
 }
 
 \examples{
-marvel_friends <- to_unsigned(to_uniplex(fict_marvel, "relationship"), "positive")
+marvel_friends <- to_unsigned(to_layer(fict_marvel, "relationship"), "positive")
 node_by_heterophily(marvel_friends, "Gender")
 node_by_heterophily(marvel_friends, "Attractive")
+node_by_concentration(ison_lawfirm, "age")
+}
+\references{
+\subsection{On local spatial autocorrelation}{
+
+Anselin, Luc. 1995.
+"Local indicators of spatial association---LISA".
+\emph{Geographical Analysis} 27(2): 93-115.
+\doi{10.1111/j.1538-4632.1995.tb00338.x}
+}
+
+\subsection{On concentration}{
+
+Getis, Arthur, and J. Keith Ord. 1992.
+"The analysis of spatial association by use of distance statistics".
+\emph{Geographical Analysis} 24(3): 189-206.
+\doi{10.1111/j.1538-4632.1992.tb00261.x}
+
+Ord, J. Keith, and Arthur Getis. 1995.
+"Local spatial autocorrelation statistics: distributional issues and an application".
+\emph{Geographical Analysis} 27(4): 286-306.
+\doi{10.1111/j.1538-4632.1995.tb00912.x}
+}
 }
 \seealso{
 Other diversity:
 \code{\link{measure_assort_net}},
+\code{\link{measure_diverse_dispersion}},
 \code{\link{measure_diverse_net}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_diverse_tie}},
 \code{\link{motif_composition}},
 \code{\link{motif_homophily}}
 
 Other measures:
+\code{\link{measure_accuracy_net}},
+\code{\link{measure_accuracy_node}},
 \code{\link{measure_assort_net}},
 \code{\link{measure_breadth}},
 \code{\link{measure_broker_node}},
-\code{\link{measure_broker_tie}},
 \code{\link{measure_brokerage}},
 \code{\link{measure_central_between}},
 \code{\link{measure_central_close}},
@@ -143,13 +194,18 @@ Other measures:
 \code{\link{measure_diffusion_infection}},
 \code{\link{measure_diffusion_net}},
 \code{\link{measure_diffusion_node}},
+\code{\link{measure_diverse_dispersion}},
 \code{\link{measure_diverse_net}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_diverse_tie}},
+\code{\link{measure_domain}},
 \code{\link{measure_features}},
 \code{\link{measure_fit}},
 \code{\link{measure_fragmentation}},
 \code{\link{measure_hierarchy}},
-\code{\link{measure_periods}}
+\code{\link{measure_opinion}},
+\code{\link{measure_periods}},
+\code{\link[=tie_by_width]{tie_by_width()}}
 
 Other nodal:
 \code{\link{mark_core}},
@@ -157,6 +213,7 @@ Other nodal:
 \code{\link{mark_diff}},
 \code{\link{mark_nodes}},
 \code{\link{mark_select_node}},
+\code{\link{measure_accuracy_node}},
 \code{\link{measure_broker_node}},
 \code{\link{measure_brokerage}},
 \code{\link{measure_central_between}},
@@ -167,6 +224,8 @@ Other nodal:
 \code{\link{measure_core}},
 \code{\link{measure_diffusion_node}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_domain}},
+\code{\link{measure_opinion}},
 \code{\link{member_brokerage}},
 \code{\link{member_cliques}},
 \code{\link{member_community}},
@@ -178,6 +237,7 @@ Other nodal:
 \code{\link{member_core}},
 \code{\link{member_diffusion}},
 \code{\link{member_equivalence}},
+\code{\link{motif_accuracy_node}},
 \code{\link{motif_brokerage_node}},
 \code{\link{motif_clique}},
 \code{\link{motif_composition}},

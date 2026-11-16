@@ -48,10 +48,10 @@ are key because they minimise or, more often, maximise some measure.
 }
 }
 \examples{
-node_is_random(ison_brandes, 2)
-node_is_max(node_by_degree(ison_brandes))
-node_is_min(node_by_degree(ison_brandes))
-node_is_mean(node_by_degree(ison_brandes))
+node_is_random(ison_centrality, 2)
+node_is_max(node_by_degree(ison_centrality))
+node_is_min(node_by_degree(ison_centrality))
+node_is_mean(node_by_degree(ison_centrality))
 }
 \seealso{
 Other selection:
@@ -72,6 +72,7 @@ Other nodal:
 \code{\link{mark_degree}},
 \code{\link{mark_diff}},
 \code{\link{mark_nodes}},
+\code{\link{measure_accuracy_node}},
 \code{\link{measure_assort_node}},
 \code{\link{measure_broker_node}},
 \code{\link{measure_brokerage}},
@@ -83,6 +84,8 @@ Other nodal:
 \code{\link{measure_core}},
 \code{\link{measure_diffusion_node}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_domain}},
+\code{\link{measure_opinion}},
 \code{\link{member_brokerage}},
 \code{\link{member_cliques}},
 \code{\link{member_community}},
@@ -94,6 +97,7 @@ Other nodal:
 \code{\link{member_core}},
 \code{\link{member_diffusion}},
 \code{\link{member_equivalence}},
+\code{\link{motif_accuracy_node}},
 \code{\link{motif_brokerage_node}},
 \code{\link{motif_clique}},
 \code{\link{motif_composition}},

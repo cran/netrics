@@ -2,11 +2,11 @@
 % Please edit documentation in R/mark_ties.R
 \name{mark_dyads}
 \alias{mark_dyads}
-\alias{tie_is_multiple}
+\alias{tie_is_repeated}
 \alias{tie_is_reciprocated}
 \title{Marks of ties based on dyadic properties}
 \usage{
-tie_is_multiple(.data)
+tie_is_repeated(.data)
 
 tie_is_reciprocated(.data)
 }
@@ -24,7 +24,7 @@ whether the condition is matched.
 These functions return logical vectors the length of the ties
 in a network identifying which are embedded within particular dyads.
 \itemize{
-\item \code{tie_is_multiple()} marks ties that repeat an earlier tie between
+\item \code{tie_is_repeated()} marks ties that repeat an earlier tie between
 the same two nodes.
 \item \code{tie_is_reciprocated()} marks ties that are mutual/reciprocated.
 }
@@ -32,12 +32,12 @@ the same two nodes.
 They are most useful in highlighting parts of the network where
 relationships are denser.
 }
-\section{Multiple and parallel ties}{
+\section{Repeated and parallel ties}{
 
-\code{tie_is_multiple()} and \code{\link[manynet:tie_is_parallel]{manynet::tie_is_parallel()}} answer different
+\code{tie_is_repeated()} and \code{\link[manynet:tie_is_parallel]{manynet::tie_is_parallel()}} answer different
 questions, and can give different answers on the same network.
 
-\code{tie_is_multiple()} marks only the repeats, as \code{\link[igraph:which_multiple]{igraph::which_multiple()}}
+\code{tie_is_repeated()} marks only the repeats, as \code{\link[igraph:which_multiple]{igraph::which_multiple()}}
 does: the first tie between two nodes is \code{FALSE}, and each further tie
 between them is \code{TRUE}.
 It reads nothing but the two nodes a tie joins, so ties at different
@@ -50,35 +50,8 @@ overlapping intervals, in the same layer, and from the same reporter.
 Use it to ask whether a network holds ties that could be combined.
 }
 
-\section{Cognitive social structures}{
-
-A cognitive social structure records each node's report of the ties in
-the whole network, in a \code{by} column that names who reported each tie.
-Counting every report as a tie of its own would count each tie once for
-every perceiver who reports it.
-So the functions here first combine the reports into the locally
-aggregated structure of Krackhardt (1987), with the intersection rule:
-a tie exists if both of its ends report it, and a message says so.
-A tie that names no reporter is kept as it is.
-
-A tie-level function still returns one value for each report,
-so that the result can be added back to the network it was given.
-Each report takes the value of the tie that it reports.
-A report of a tie that is not in the aggregated structure takes \code{NA},
-or \code{FALSE} for a mark.
-\code{tie_is_random()} is the exception, and draws among the reports.
-
-To combine the reports in a different way, do this before the function,
-e.g. with \code{manynet::to_aggregated(over = "by")}.
-
-Krackhardt, David. 1987.
-"Cognitive social structures".
-\emph{Social Networks} 9(2): 109-134.
-\doi{10.1016/0378-8733(87)90009-8}
-}
-
 \examples{
-tie_is_multiple(fict_marvel)
+tie_is_repeated(fict_marvel)
 tie_is_reciprocated(ison_algebra)
 }
 \seealso{
@@ -96,12 +69,13 @@ Other tie:
 \code{\link{mark_select_tie}},
 \code{\link{mark_ties}},
 \code{\link{mark_triangles}},
-\code{\link{measure_broker_tie}},
 \code{\link{measure_central_tie_between}},
 \code{\link{measure_central_tie_close}},
 \code{\link{measure_central_tie_degree}},
 \code{\link{measure_central_tie_eigen}},
-\code{\link{member_community_link}}
+\code{\link{measure_diverse_tie}},
+\code{\link{member_community_link}},
+\code{\link[=tie_by_width]{tie_by_width()}}
 }
 \concept{marks}
 \concept{tie}

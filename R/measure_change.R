@@ -17,7 +17,7 @@ NULL
 net_by_waves <- function(.data){
   .data <- manynet::expect_nodes(.data)
   # A longitudinal network holds its waves in a `wave` or a `time` tie
-  # attribute, and `manynet::net_waves()` reads both since manynet 2.3.0.
+  # attribute, and `manynet::net_waves()` reads both.
   # A changing network counts its changelist instead.
   tie_waves <- manynet::net_waves(.data)
   if(manynet::is_changing(.data)){
@@ -56,7 +56,7 @@ NULL
   if(!missing(object2)){
     net <- list(net, object2)
   } else if(manynet::is_longitudinal(net)){
-    net <- manynet::to_waves(net)
+    net <- manynet::to_times(net)
   }
   if(!manynet::is_list(net))
     manynet::snet_abort("`.data` must be a list of networks or a second network must be provided.")
@@ -90,13 +90,7 @@ net_x_stability <- function(.data, object2){
     net2 <- manynet::as_matrix(net[[x+1]])
     # ties are counted as present or absent, over the possible ties only
     keep <- .valid_cells(net[[x]], net1) & !is.na(net1) & !is.na(net2)
-    net1 <- net1[keep] != 0
-    net2 <- net2[keep] != 0
-    n11 <- sum(net1 & net2)
-    n01 <- sum(!net1 & net2)
-    n10 <- sum(net1 & !net2)
-    # two networks without any ties are identical
-    if(n11 + n01 + n10 == 0) 1 else n11 / (n01 + n10 + n11)
+    .agreement(.confusion(net1[keep] != 0, net2[keep] != 0), "jaccard")
   }, FUN.VALUE = numeric(1))
   make_network_motif(out, .data)
 }

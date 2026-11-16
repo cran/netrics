@@ -17,7 +17,7 @@ node_is_fold(.data)
 
 node_is_mentor(.data, elites = 0.1)
 
-node_is_neighbor(.data, node)
+node_is_neighbor(.data, node, cutoff = 1)
 }
 \arguments{
 \item{.data}{A network object of class \code{stocnet}, \code{igraph}, \code{tbl_graph}, \code{network}, or similar.
@@ -29,6 +29,7 @@ By default this is set at 0.1.
 This means that the top 10\% of nodes in terms of degree,
 or those equal to the highest rank degree in the network,
 whichever is the higher, will be used to select the mentors.
+In a two-mode network the mentors are selected within each mode.
 
 Note that if nodes are equidistant from two mentors,
 they will choose one at random.
@@ -39,6 +40,12 @@ Note that this is a different default behaviour than that
 described in Valente and Davis (1999).}
 
 \item{node}{A node ID or name for which neighbors are to be marked.}
+
+\item{cutoff}{Integer scalar, the maximum path length considered.
+Paths longer than this are ignored, which restricts the measure to a
+node's local neighbourhood.
+Where a measure is defined over all paths by default,
+a negative value or \code{NULL} imposes no limit.}
 }
 \value{
 A \code{node_mark} logical vector the length of the nodes in the network,
@@ -59,52 +66,35 @@ triangles that are only connected by that node.
 \item \code{node_is_neighbor()} marks nodes that are neighbours of a given node.
 }
 }
-\section{Cognitive social structures}{
+\details{
+For signed networks, \code{node_is_fold()} considers only the positive ties.
+It reads a tie as a distance, and a negative tie is
+hostility rather than a channel along which cohesion travels.
 
-A cognitive social structure records each node's report of the ties in
-the whole network, in a \code{by} column that names who reported each tie.
-Counting every report as a tie of its own would count each tie once for
-every perceiver who reports it.
-So the functions here first combine the reports into the locally
-aggregated structure of Krackhardt (1987), with the intersection rule:
-a tie exists if both of its ends report it, and a message says so.
-A tie that names no reporter is kept as it is.
-
-A tie-level function still returns one value for each report,
-so that the result can be added back to the network it was given.
-Each report takes the value of the tie that it reports.
-A report of a tie that is not in the aggregated structure takes \code{NA},
-or \code{FALSE} for a mark.
-\code{tie_is_random()} is the exception, and draws among the reports.
-
-To combine the reports in a different way, do this before the function,
-e.g. with \code{manynet::to_aggregated(over = "by")}.
-
-Krackhardt, David. 1987.
-"Cognitive social structures".
-\emph{Social Networks} 9(2): 109-134.
-\doi{10.1016/0378-8733(87)90009-8}
-}
-
-\section{Signed networks}{
-
-\code{node_is_fold()} reads a tie as a distance, and a negative tie is
-hostility rather than a channel along which cohesion travels, so where the
-network is signed it considers only the positive ties.
-}
-
-\section{Multilevel networks}{
-
+For multilevel networks, \code{node_is_independent()} marks the network whole,
+as \code{\link[=net_by_independence]{net_by_independence()}} does.
 A multilevel network reports itself as two-mode, but holds ties within a
 mode as well as between them, so it cannot be projected onto one mode.
-\code{node_is_independent()} therefore marks a multilevel network whole, as
-\code{\link[=net_by_independence]{net_by_independence()}} does.
+}
+\section{Neighbourhoods}{
+
+By default, \code{node_is_neighbor()} marks the nodes that \code{node} has a tie to.
+Given a \code{cutoff}, it instead marks every node that can be reached from
+\code{node} along a path no longer than \code{cutoff}, but not \code{node} itself.
+Where the ties have a 'length' attribute,
+such as \code{\link[manynet:read_geojson]{manynet::read_geojson()}} measures along each line,
+a path is as long as the sum of the lengths of its ties,
+so that \code{cutoff} can be, for example, a travel distance or time
+(an \emph{isochrone});
+otherwise a path is as long as the number of ties it crosses.
+Weights are strengths and not distances, so they are not read.
 }
 
 \examples{
 node_is_independent(ison_adolescents)
-node_is_cutpoint(ison_brandes)
+node_is_cutpoint(ison_centrality)
 node_is_fold(create_explicit(A-B, B-C, A-C, C-D, C-E, D-E))
+node_is_neighbor(ison_adolescents, "Betty", cutoff = 2)
 }
 \references{
 \subsection{On independent sets}{
@@ -154,6 +144,7 @@ Other nodal:
 \code{\link{mark_degree}},
 \code{\link{mark_diff}},
 \code{\link{mark_select_node}},
+\code{\link{measure_accuracy_node}},
 \code{\link{measure_assort_node}},
 \code{\link{measure_broker_node}},
 \code{\link{measure_brokerage}},
@@ -165,6 +156,8 @@ Other nodal:
 \code{\link{measure_core}},
 \code{\link{measure_diffusion_node}},
 \code{\link{measure_diverse_node}},
+\code{\link{measure_domain}},
+\code{\link{measure_opinion}},
 \code{\link{member_brokerage}},
 \code{\link{member_cliques}},
 \code{\link{member_community}},
@@ -176,6 +169,7 @@ Other nodal:
 \code{\link{member_core}},
 \code{\link{member_diffusion}},
 \code{\link{member_equivalence}},
+\code{\link{motif_accuracy_node}},
 \code{\link{motif_brokerage_node}},
 \code{\link{motif_clique}},
 \code{\link{motif_composition}},
